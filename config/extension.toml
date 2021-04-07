@@ -1,0 +1,9 @@
+display_name = "ROS Control Bridge"
+
+[dependencies]
+"omni.kit.editor" = {}
+"omni.isaac.dynamic_control" = {}
+"omni.isaac.ros_bridge" = {}
+
+[[python.modules]]
+name = "omni.add_on.ros_control_bridge"
