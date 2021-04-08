@@ -34,7 +34,7 @@ class RosControlBridgeMenu:
         prim.CreateControllerNameAttr("/robot_controller")
         prim.CreateActionNamespaceAttr("/follow_joint_trajectory")
         prim.CreateArticulationPrimRel()
-
+        
     def _on_scene_menu_click(self, menu, value):
         self._stage = self._usd_context.get_stage()
 

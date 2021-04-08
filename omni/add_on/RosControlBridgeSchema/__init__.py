@@ -41,5 +41,8 @@ class RosControlFollowJointTrajectory(ROSSchema.RosBridgeComponent):
         return self.GetPrim().GetAttribute("actionNamespace")
 
     @staticmethod
-    def GetSchemaAttributeNames():
-        pass
+    def GetSchemaAttributeNames(includeInherited=True):
+        names = []
+        if includeInherited: 
+            names = ROSSchema.RosBridgeComponent.GetSchemaAttributeNames(includeInherited)
+        return names + ["controllerName", "actionNamespace"]
