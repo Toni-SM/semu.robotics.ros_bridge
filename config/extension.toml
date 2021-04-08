@@ -7,3 +7,7 @@ display_name = "ROS Control Bridge"
 
 [[python.modules]]
 name = "omni.add_on.ros_control_bridge"
+
+[[python.modules]]
+name = "omni.add_on.RosControlBridgeSchema"
+public = false
