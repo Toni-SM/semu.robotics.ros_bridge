@@ -58,6 +58,7 @@ class RosController():
         
         self._ar = None
         self._server = None
+        self._joint_names = []
 
         # feedback/result
         self._feedback = control_msgs.msg.FollowJointTrajectoryFeedback()
@@ -81,6 +82,13 @@ class RosController():
                 print("[WARNING] OmniIsaacRosControlBridge: prim {}: invalid handle".format(path))
                 return
 
+            # get joint names
+            self._joint_names = []
+            for i in range(self._dci.get_articulation_dof_count(self._ar)):
+                dof = self._dci.get_articulation_dof(self._ar, i)
+                if dof != _dynamic_control.DofType.DOF_NONE:
+                    self._joint_names.append(self._dci.get_joint_name(self._dci.get_dof_joint(dof)))
+
             # build action name
             _action_name = self._schema.GetRosNodePrefixAttr().Get() \
                          + self._schema.GetControllerNameAttr().Get() \
@@ -94,7 +102,6 @@ class RosController():
                                                   cancel_cb=self._cancel_cb,
                                                   auto_start=False)
             self._server.start()
-            print("started")
 
     def stop(self):
         self._shutdown_server()
