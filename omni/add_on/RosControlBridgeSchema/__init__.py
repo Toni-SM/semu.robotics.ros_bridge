@@ -3,18 +3,17 @@ import omni.isaac.RosBridgeSchema as ROSSchema
 
 
 class RosControlFollowJointTrajectory(ROSSchema.RosBridgeComponent):
-    def __init__(self, stage, path):
-        prim = stage.DefinePrim(path, "RosControlFollowJointTrajectory")
-        
+    def __init__(self, prim):
         # RosBridgeComponent:
         # __init__(_object*, pxrInternal_v0_19__pxrReserved__::UsdSchemaBase schemaObj)
         # __init__(_object*, pxrInternal_v0_19__pxrReserved__::UsdPrim prim)
         # __init__(_object*)
         super().__init__(prim)
-
+        
     @staticmethod
     def Define(stage, path):
-        return RosControlFollowJointTrajectory(stage, path)
+        prim = stage.DefinePrim(path, "RosControlFollowJointTrajectory")
+        return RosControlFollowJointTrajectory(prim)
 
     def CreateArticulationPrimRel(self):
         self.GetPrim().CreateRelationship("articulationPrim")
@@ -28,8 +27,8 @@ class RosControlFollowJointTrajectory(ROSSchema.RosBridgeComponent):
     @staticmethod
     def Get(stage, path):
         # Get(pxrInternal_v0_19__pxrReserved__::TfWeakPtr<pxrInternal_v0_19__pxrReserved__::UsdStage> stage, pxrInternal_v0_19__pxrReserved__::SdfPath path)
-        # return stage.GetPrimAtPath(path)
-        pass
+        prim = stage.GetPrimAtPath(path)
+        return RosControlFollowJointTrajectory(prim)
 
     def GetArticulationPrimRel(self):
         return self.GetPrim().GetRelationship("articulationPrim")
