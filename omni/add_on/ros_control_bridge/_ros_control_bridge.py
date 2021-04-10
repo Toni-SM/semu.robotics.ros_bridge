@@ -1,3 +1,5 @@
+import time
+
 import omni
 import omni.kit.editor
 from pxr import Usd, PhysicsSchema
@@ -28,6 +30,9 @@ class RosControlBridge:
         # isaac interfaces
         self._dci = _dynamic_control.acquire_dynamic_control_interface()
 
+        # events
+        self._event_editor_step = self._editor.subscribe_to_update_events(self._on_editor_step_event)
+
         # ROS node
         try:
             rospy.init_node('OmniIsaacRosControlBridge')
@@ -38,6 +43,7 @@ class RosControlBridge:
             self._components.append(RosController(self._dci, self._usd_context, schema))
 
     def shutdown(self):
+        self._event_editor_step = None
         for component in self._components:
             component.stop()
 
@@ -49,6 +55,10 @@ class RosControlBridge:
                 schemas.append(ROSControlSchema.RosControlFollowJointTrajectory(prim))
         return schemas
 
+    def _on_editor_step_event(self, step):
+        for component in self._components:
+            component.step(step)
+
 
 class RosController():
     def __init__(self, dci, usd_context, schema):
@@ -59,6 +69,7 @@ class RosController():
         self._ar = None
         self._server = None
         self._joint_names = []
+        self._current_position = None
 
         # feedback/result
         self._feedback = control_msgs.msg.FollowJointTrajectoryFeedback()
@@ -106,9 +117,14 @@ class RosController():
     def stop(self):
         self._shutdown_server()
 
+    def step(self, step):
+        if self._ar and self._current_position:
+            self._dci.wake_up_articulation(self._ar)
+            self._dci.set_articulation_dof_position_targets(self._ar, self._current_position)
+
     def _shutdown_server(self):
         # /opt/ros/melodic/lib/python2.7/dist-packages/actionlib/action_server.py
-        print("shutdown", self._schema.GetPrim().GetPath())
+        print("[INFO] OmniIsaacRosControlBridge shutdown", self._schema.GetPrim().GetPath())
         if self._server:
             if self._server.started:
                 self._server.started = False
@@ -143,6 +159,7 @@ class RosController():
             dt = trajectory.time_from_start.to_sec() - last_time_from_start
             last_time_from_start = trajectory.time_from_start.to_sec()
 
+            self._current_position = trajectory.positions + (0,0)
             time.sleep(dt)
             
             # TODO: add error
@@ -157,14 +174,12 @@ class RosController():
         if success:
             self._result.error_code = self._result.SUCCESSFUL
             goal_handle.set_succeeded(self._result, "")
-            print("set_succeeded")
         else:
             self._result.error_code = self._result.SUCCESSFUL
             goal_handle.set_aborted(self._result, "")
-            print("set_aborted")
-        print("end")
 
     def _cancel_cb(self, goal_id):
-        print("_cancel_cb:", type(goal_id), goal_id)
+        # TODO: cancel current goal
+        pass
 
     # self._editor.is_playing()
