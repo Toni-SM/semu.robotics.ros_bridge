@@ -5,7 +5,13 @@ import omni.kit.editor
 from pxr import Usd, PhysicsSchema
 from omni.isaac.dynamic_control import _dynamic_control
 
-import rospy
+try:
+    import rospy
+except:
+    import pyros_setup
+    pyros_setup.configurable_import().configure().activate() # mysetup.cfg from pyros-setup
+    import rospy
+
 import actionlib
 import control_msgs.msg     # apt-get install ros-<distro>-control-msgs
 
@@ -67,9 +73,8 @@ class RosController():
         self._schema = schema
         
         self._ar = None
+        self._dof = {}
         self._server = None
-        self._joint_names = []
-        self._current_position = None
 
         # feedback/result
         self._feedback = control_msgs.msg.FollowJointTrajectoryFeedback()
@@ -93,12 +98,12 @@ class RosController():
                 print("[WARNING] OmniIsaacRosControlBridge: prim {}: invalid handle".format(path))
                 return
 
-            # get joint names
-            self._joint_names = []
+            # get DOF
             for i in range(self._dci.get_articulation_dof_count(self._ar)):
                 dof = self._dci.get_articulation_dof(self._ar, i)
                 if dof != _dynamic_control.DofType.DOF_NONE:
-                    self._joint_names.append(self._dci.get_joint_name(self._dci.get_dof_joint(dof)))
+                    joint_name = self._dci.get_joint_name(self._dci.get_dof_joint(dof))
+                    self._dof[joint_name] = {"dof": dof, "target": None}
 
             # build action name
             _action_name = self._schema.GetRosNodePrefixAttr().Get() \
@@ -118,9 +123,11 @@ class RosController():
         self._shutdown_server()
 
     def step(self, step):
-        if self._ar and self._current_position:
+        if self._ar:
             self._dci.wake_up_articulation(self._ar)
-            self._dci.set_articulation_dof_position_targets(self._ar, self._current_position)
+            for k in self._dof:
+                if self._dof[k]["target"] is not None:
+                    self._dci.set_dof_position_target(self._dof[k]["dof"], self._dof[k]["target"])
 
     def _shutdown_server(self):
         # /opt/ros/melodic/lib/python2.7/dist-packages/actionlib/action_server.py
@@ -140,26 +147,23 @@ class RosController():
             self._server = None
     
     def _goal_cb(self, goal_handle):
-        pass
         goal_handle.set_accepted("")
         goal = goal_handle.get_goal()
-
-        print("")
-        print("_goal_cb:", type(goal))
-        print("goal_tolerance:", goal.goal_tolerance)
-        print("path_tolerance:", goal.path_tolerance)
-        print("goal_time_tolerance:", goal.goal_time_tolerance)
-        print("trajectory.joint_names:", goal.trajectory.joint_names)
-        print("trajectory.points:", len(goal.trajectory.points))
+        # TODO: see other properties: goal_tolerance, path_tolerance, goal_time_tolerance
 
         last_time_from_start = 0
+        joint_names = goal.trajectory.joint_names
 
+        # execute trajectories
         for trajectory in goal.trajectory.points:
+            # set target
+            # TODO: add lock
+            for i in range(len(joint_names)):
+                self._dof[joint_names[i]]["target"] = trajectory.positions[i]
+
             # compute dt
             dt = trajectory.time_from_start.to_sec() - last_time_from_start
             last_time_from_start = trajectory.time_from_start.to_sec()
-
-            self._current_position = trajectory.positions + (0,0)
             time.sleep(dt)
             
             # TODO: add error
@@ -169,6 +173,10 @@ class RosController():
 
             # publish feedback
             goal_handle.publish_feedback(self._feedback)
+
+        # release dof's target
+        for k in self._dof:
+            self._dof[k]["target"] = None
 
         success = True
         if success:
