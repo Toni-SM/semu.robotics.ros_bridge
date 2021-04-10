@@ -38,15 +38,13 @@ class RosControlBridge:
 
         # events
         self._event_editor_step = self._editor.subscribe_to_update_events(self._on_editor_step_event)
+        self._stage_event = self._usd_context.get_stage_event_stream().create_subscription_to_pop(self._on_stage_event)
 
         # ROS node
         try:
             rospy.init_node('OmniIsaacRosControlBridge')
         except rospy.ROSException as e:
             print("[ERROR] OmniIsaacRosControlBridge:", e)
-
-        for schema in self._get_ros_control_bridge_schema():
-            self._components.append(RosController(self._dci, self._usd_context, schema))
 
     def shutdown(self):
         self._event_editor_step = None
@@ -62,8 +60,28 @@ class RosControlBridge:
         return schemas
 
     def _on_editor_step_event(self, step):
-        for component in self._components:
-            component.step(step)
+        if self._editor.is_playing():
+            for component in self._components:
+                if not component.started:
+                    component.start()
+                    return
+                component.step(step)
+        else:
+            for component in self._components:
+                if component.started:
+                    print("stop component")
+                    component.stop()
+
+    def _on_stage_event(self, event):
+        print(event.type)
+        if event.type == int(omni.usd.StageEventType.OPENED):
+            # stop components
+            for component in self._components:
+                component.stop()
+            # load components
+            self._components = []
+            for schema in self._get_ros_control_bridge_schema():
+                self._components.append(RosController(self._dci, self._usd_context, schema))
 
 
 class RosController():
@@ -72,6 +90,8 @@ class RosController():
         self._usd_context = usd_context
         self._schema = schema
         
+        self.started = False
+
         self._ar = None
         self._dof = {}
         self._server = None
@@ -79,10 +99,11 @@ class RosController():
         # feedback/result
         self._feedback = control_msgs.msg.FollowJointTrajectoryFeedback()
         self._result = control_msgs.msg.FollowJointTrajectoryResult()
-
-        self.start()
     
     def start(self):
+        self.started = True
+        print("[INFO] OmniIsaacRosControlBridge: starting component")
+
         relationships = self._schema.GetArticulationPrimRel().GetTargets()
         if relationships:
             # check for articulation API
@@ -120,7 +141,9 @@ class RosController():
             self._server.start()
 
     def stop(self):
+        print("[INFO] OmniIsaacRosControlBridge: stopping component")
         self._shutdown_server()
+        self.started = False
 
     def step(self, step):
         if self._ar:
@@ -189,5 +212,3 @@ class RosController():
     def _cancel_cb(self, goal_id):
         # TODO: cancel current goal
         pass
-
-    # self._editor.is_playing()
