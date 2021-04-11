@@ -254,7 +254,7 @@ class RosControllerGripperCommand(RosController):
         print("[INFO] OmniIsaacRosControlBridge: starting", self._schema.__class__.__name__)
 
         relationships = self._schema.GetArticulationPrimRel().GetTargets()
-        if relationships:
+        if len(relationships) > 1:
             # check for articulation API
             stage = self._usd_context.get_stage()
             path = relationships[0].GetPrimPath().pathString
@@ -268,14 +268,16 @@ class RosControllerGripperCommand(RosController):
                 print("[WARNING] OmniIsaacRosControlBridge: prim {}: invalid handle".format(path))
                 return
 
-            # # get DOF
-            # self._dof = {}
-            # for i in range(self._dci.get_articulation_dof_count(self._ar)):
-            #     dof = self._dci.get_articulation_dof(self._ar, i)
-            #     if dof != _dynamic_control.DofType.DOF_NONE:
-            #         joint_name = self._dci.get_joint_name(self._dci.get_dof_joint(dof))
-            #         self._dof[joint_name] = {"dof": dof, "target": None}
-
+            # get DOF
+            self._dof = {}
+            dof_paths = [relationship.GetPrimPath().pathString for relationship in relationships[1:]]
+            for i in range(self._dci.get_articulation_dof_count(self._ar)):
+                dof = self._dci.get_articulation_dof(self._ar, i)
+                if dof != _dynamic_control.DofType.DOF_NONE:
+                    if self._dci.get_dof_path(dof) in dof_paths:
+                        joint_name = self._dci.get_joint_name(self._dci.get_dof_joint(dof))
+                        self._dof[joint_name] = {"dof": dof, "target": None}
+            
             # build action name
             _action_name = self._schema.GetRosNodePrefixAttr().Get() \
                          + self._schema.GetControllerNameAttr().Get() \
@@ -287,37 +289,21 @@ class RosControllerGripperCommand(RosController):
     def _goal_cb(self, goal_handle):
         goal_handle.set_accepted("")
         goal = goal_handle.get_goal()
+        # TODO: see other properties: command.max_effort
 
-        print("")
-        print("_goal_cb:", type(goal))
-        print("_goal_cb:", goal)
-        print("goal.command.position:", goal.command.position)
-        print("goal.command.max_effort:", goal.command.max_effort)
+        for k in self._dof:
+            self._dof[k]["target"] = goal.command.position
 
-        # # TODO: see other properties: goal_tolerance, path_tolerance, goal_time_tolerance
-
-        # last_time_from_start = 0
-        # joint_names = goal.trajectory.joint_names
-
-        # # execute trajectories
-        # for trajectory in goal.trajectory.points:
-        #     # set target
-        #     # TODO: add lock
-        #     for i in range(len(joint_names)):
-        #         self._dof[joint_names[i]]["target"] = trajectory.positions[i]
-
-        #     # compute dt
-        #     dt = trajectory.time_from_start.to_sec() - last_time_from_start
-        #     last_time_from_start = trajectory.time_from_start.to_sec()
-        #     time.sleep(dt)
-            
-        #     # TODO: add error
-        #     # build feedback
-        #     self._feedback.actual = trajectory
-        #     self._feedback.desired = goal.trajectory.points[-1]
-
-        #     # publish feedback
-        #     goal_handle.publish_feedback(self._feedback)
+        time.sleep(0.05)
+        
+        # publish feedback
+        self._feedback.reached_goal = False
+        self._feedback.stalled = False
+        self._feedback.position = goal.command.position
+        self._feedback.effort = goal.command.max_effort
+        goal_handle.publish_feedback(self._feedback)
+    
+        time.sleep(0.05)
 
         # # release dof's target
         # for k in self._dof:
