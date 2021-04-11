@@ -5,7 +5,7 @@ import omni.kit.editor
 import omni.add_on.RosControlBridgeSchema as ROSControlSchema
 
 ADD_ROS_CONTROL_FOLLOW_JOINT_TRAJECTORY = "Create/Isaac/ROS Control/FollowJointTrajectory"
-ADD_ROS_CONTROL_FOLLOW_JOINT_TRAJECTORY = "Test/FollowJointTrajectory"
+ADD_ROS_CONTROL_GRIPPER_COMMAND = "Create/Isaac/ROS Control/GripperCommand"
 
 
 class RosControlBridgeMenu:
@@ -15,6 +15,7 @@ class RosControlBridgeMenu:
 
         editor_menu = omni.kit.ui.get_editor_menu()
         self._menus.append(editor_menu.add_item(ADD_ROS_CONTROL_FOLLOW_JOINT_TRAJECTORY, self._on_scene_menu_click))
+        self._menus.append(editor_menu.add_item(ADD_ROS_CONTROL_GRIPPER_COMMAND, self._on_scene_menu_click))
         
     def setup_base_prim(self, prim):
         prim.CreateRosNodePrefixAttr("")
@@ -27,12 +28,19 @@ class RosControlBridgeMenu:
         return omni.kit.utils.get_stage_next_free_path(self._stage, name, True)
 
     def add_follow_joint_trajectory(self):
-
         prim = ROSControlSchema.RosControlFollowJointTrajectory.Define(self._stage, self.get_path("/ROSControl_FollowJointTrajectory"))
         self.setup_base_prim(prim)
 
         prim.CreateControllerNameAttr("/robot_controller")
         prim.CreateActionNamespaceAttr("/follow_joint_trajectory")
+        prim.CreateArticulationPrimRel()
+
+    def add_gripper_command(self):
+        prim = ROSControlSchema.RosControlGripperCommand.Define(self._stage, self.get_path("/ROSControl_GripperCommand"))
+        self.setup_base_prim(prim)
+
+        prim.CreateControllerNameAttr("/gripper_controller")
+        prim.CreateActionNamespaceAttr("/gripper_command")
         prim.CreateArticulationPrimRel()
         
     def _on_scene_menu_click(self, menu, value):
@@ -40,6 +48,8 @@ class RosControlBridgeMenu:
 
         if menu == ADD_ROS_CONTROL_FOLLOW_JOINT_TRAJECTORY:
             self.add_follow_joint_trajectory()
+        elif menu == ADD_ROS_CONTROL_GRIPPER_COMMAND:
+            self.add_gripper_command()
 
     def shutdown(self):
         self._menus = None
