@@ -6,7 +6,7 @@
 
 ### Table of Contents
 
-- [Setup the extension in NVIDIA Omniverse Isaac Sim and enable it](#extension)
+- [Setup the extension in NVIDIA Omniverse Isaac Sim](#extension)
 - [Control your robot using MoveIt](#control)
 - [Add Follow Joint Trajectory action](#follow_joint_trajectory)
 - [Add Gripper Command action](#gripper_command)
@@ -15,7 +15,7 @@
 <br>
 
 <a name="extension"></a>
-### Setup the extension in NVIDIA Omniverse Isaac Sim and enable it
+### Setup the extension in NVIDIA Omniverse Isaac Sim
 
 **Prerequisites:**
 
@@ -29,7 +29,6 @@ apt-get install ros-<distro>-control-msgs
 
 ```bash
 cd /isaac-sim/_build/target-deps/kit_sdk_release/_build/target-deps/python
-
 bin/python3 -m pip install pyros-setup rospkg
 ```
 
@@ -42,7 +41,13 @@ bin/python3 -m pip install pyros-setup rospkg
     git clone https://github.com/Toni-SM/omni.add_on.ros_control_bridge.git omni.add_on.ros_control_bridge
     ```
 
-2. Enable the extension in the menu *Window > Extension Manager* under the same name. When the ros_control_bridge extension is loaded, the ROS Control actions will automatically show up under *Create > Isaac Sim > ROS Control* menu
+2. Enable the extension in the menu *Window > Extension Manager* under the same name. When the ```ros_control_bridge``` extension is loaded, the ROS Control actions will automatically show up under *Create > Isaac Sim > ROS Control* menu
+
+<br>
+
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/22400377/115996566-1811a900-a5e0-11eb-8e80-248575f9aec6.png" width="40%">
+</p>
 
 <br>
 
@@ -51,11 +56,11 @@ bin/python3 -m pip install pyros-setup rospkg
 
 #### Concepts
 
-MoveIt's *move_group* talks to the robot through ROS topics and actions. Three interfaces are required to control the robot. Go to the [MoveIt](https://moveit.ros.org/) website to read more about the [concepts](https://moveit.ros.org/documentation/concepts/) behind Moveit
+MoveIt's *move_group* talks to the robot through ROS topics and actions. Three interfaces are required to control the robot. Go to the [MoveIt](https://moveit.ros.org/) website to read more about the [concepts](https://moveit.ros.org/documentation/concepts/) behind it
 
-- **Joint State information:** the ```/joint_states``` topic (publisher) is used to determining the current state information. Go to [Add Joint State publisher](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html#add-joint-state-publisher) to add a publisher and setup it
+- **Joint State information:** the ```/joint_states``` topic (publisher) is used to determining the current state information. Go to [Add Joint State publisher](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html#add-joint-state-publisher) to add a publisher in Isaac Sim and setup it
 
-- **Transform information:** the ROS TF library is used to monitor the transform information. Go to [Add TF topics](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html#add-tf-topics) to add a tranform tree topic and setup it
+- **Transform information:** the ROS TF library is used to monitor the transform information. Go to [Add TF topics](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html#add-tf-topics) to add a tranform tree topic in Isaac Sim and setup it
 
 - **Controller Interface:** *move_group* talks to the controllers on the robot using the *FollowJointTrajectory* action interface. However, it is possible to use other controller interfaces to control the robot
 
@@ -65,9 +70,9 @@ MoveIt's *move_group* talks to the robot through ROS topics and actions. Three i
 
 1. Import your robot from an URDF file using the [URDF Importer](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/urdf.html) extension. Go to [ROS Wiki: Using Xacro](http://wiki.ros.org/urdf/Tutorials/Using%20Xacro%20to%20Clean%20Up%20a%20URDF%20File#Using_Xacro) to convert your robot description form ```.xacro``` to ```.urdf``` 
 
-2. Add and setup a [Joint State topic](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html#add-joint-state-topics) using the [ROS Bridge](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html) extension
+2. Add a [Joint State topic](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html#add-joint-state-topics) using the [ROS Bridge](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html) extension
 
-3. Add and setup a [TF topic](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html#add-tf-topics) topic using the [ROS Bridge](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html) extension
+3. Add a [TF topic](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html#add-tf-topics) topic using the [ROS Bridge](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ros_bridge.html) extension
 
 4. Add the corresponding ROS control actions implemented by this extension (**see sections below**) according to your robot application requirements 
 
@@ -84,11 +89,11 @@ MoveIt's *move_group* talks to the robot through ROS topics and actions. Three i
     ```
 2. Launch the *move_group* using the configured controllers
 
+    **```sample.launch``` file:** replace ```moveit_config``` with the generated folder's name and ```/panda/joint_state``` with the Isaac Sim joint state topic
+
     ```bash
     roslaunch moveit_config sample.launch
     ```
-
-    **```sample.launch``` file:** replace ```moveit_config``` with the generated folder's name and ```/panda/joint_state``` with the Isaac Sim joint state topic
     
     ```xml
     <launch>
@@ -133,10 +138,41 @@ MoveIt's *move_group* talks to the robot through ROS topics and actions. Three i
 <a name="follow_joint_trajectory"></a>
 ### Add Follow Joint Trajectory action
 
+To add a ```FollowJointTrajectory``` action go to *Create > Isaac > ROS Control* and add *FollowJointTrajectory*
+
+This component needs to be connected to the robot of your choice. To do so, we first need to open up the *Relationship Editor* by going to *Window > Isaac > Relationship Editor*. Select ```ROSControl_FollowJointTrajectory``` on the stage tree, and open up the relationship editor tab. Under ```articulationPrim```, add the path to the root of the articulation tree. Press play on the editor, and the topics related to this action will be ready to be used.
+
+The communicating will be made in the namespace defined by the next fields:
+
+```python
+rosNodePrefix + controllerName + actionNamespace
+```
+
+<br>
+
+![followjointtrajectory](https://user-images.githubusercontent.com/22400377/115996567-18aa3f80-a5e0-11eb-8efb-012449369b6a.png)
+
 <br>
 
 <a name="gripper_command"></a>
 ### Add Gripper Command action
+
+
+To add a ```GripperCommand``` action go to *Create > Isaac > ROS Control* and add *GripperCommand*
+
+This component needs to be connected to the end-effector. To do so, we first need to open up the *Relationship Editor* by going to *Window > Isaac > Relationship Editor*. Select ```ROSControl_GripperCommand``` on the stage tree, and open up the relationship editor tab. Under ```articulationPrim```, add the path to the root of the articulation tree and the path of each end-effector joint to be controlled, following this strict order. Press play on the editor, and the topics related to this action will be ready to be used
+
+The communicating will be made in the namespace defined by the next fields:
+
+```python
+rosNodePrefix + controllerName + actionNamespace
+```
+
+The ```GripperCommand``` action definition doesn't specify which joints will be controlled. The value manage by this action will affect all the specified joints equally
+
+<br>
+
+![grippercommand](https://user-images.githubusercontent.com/22400377/115996570-19db6c80-a5e0-11eb-8c2a-b07902f285a1.png)
 
 <br>
 
