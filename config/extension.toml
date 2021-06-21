@@ -1,13 +1,32 @@
-display_name = "ROS Control Bridge"
+[core]
+reloadable = true
+order = 0
+
+[package]
+version = "0.0.1"
+category = "Simulation"
+title = "ROS Control Bridge"
+description = "ROS action interfaces used for controlling robots"
+authors = ["Toni-SM"]
+repository = ""
+keywords = ["ROS", "control"]
+changelog = "docs/CHANGELOG.md"
+readme = "docs/README.md"
+preview_image = "data/preview.png"
+icon = "data/icon.png"
 
 [dependencies]
-"omni.kit.editor" = {}
+"omni.kit.uiapp" = {}
 "omni.isaac.dynamic_control" = {}
 "omni.isaac.ros_bridge" = {}
+"omni.usd.schema.add_on" = {}
+"omni.add_on.ros_control_bridge_ui" = {}
 
-[[python.modules]]
+[[python.module]]
 name = "omni.add_on.ros_control_bridge"
 
-[[python.modules]]
-name = "omni.add_on.RosControlBridgeSchema"
-public = false
+[[python.module]]
+name = "omni.add_on.ros_control_bridge.tests"
+
+[settings]
+exts."omni.isaac.ros_control_bridge".nodeName = "OmniIsaacRosControlBridge"
