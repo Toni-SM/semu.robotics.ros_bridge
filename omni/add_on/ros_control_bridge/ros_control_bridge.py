@@ -1,25 +1,24 @@
+from logging import error
+from subprocess import check_call
+from threading import currentThread
 import time
 
 import omni
-import omni.kit.editor
-from pxr import Usd, PhysicsSchema
+import carb
+from pxr import Usd, PhysxSchema
 from omni.isaac.dynamic_control import _dynamic_control
 
-try:
-    import rospy
-except:
-    import pyros_setup
-    pyros_setup.configurable_import().configure().activate() # mysetup.cfg from pyros-setup
-    import rospy
-
+import rospy
 import actionlib
 import control_msgs.msg     # apt-get install ros-<distro>-control-msgs
+import rosgraph
 
 import omni.add_on.RosControlBridgeSchema as ROSControlSchema
+from rospy.names import reload_mappings
 
 
 def acquire_roscontrolbridge_interface(plugin_name=None, library_path=None):
-    return RosControlBridge() 
+    return RosControlBridge()
 
 def release_roscontrolbridge_interface(bridge):
     bridge.shutdown()
@@ -31,27 +30,43 @@ class RosControlBridge:
 
         # omni objects
         self._usd_context = omni.usd.get_context()
-        self._editor = omni.kit.editor.get_editor_interface()
+        self._timeline = omni.timeline.get_timeline_interface()
         
         # isaac interfaces
         self._dci = _dynamic_control.acquire_dynamic_control_interface()
 
         # events
-        self._event_editor_step = self._editor.subscribe_to_update_events(self._on_editor_step_event)
+        self._event_editor_step = (omni.kit.app.get_app().get_update_event_stream().create_subscription_to_pop(self._on_editor_step_event))
+        self._event_timeline = self._timeline.get_timeline_event_stream().create_subscription_to_pop(self._on_timeline_event)
         self._stage_event = self._usd_context.get_stage_event_stream().create_subscription_to_pop(self._on_stage_event)
 
         # ROS node
-        try:
-            rospy.init_node('OmniIsaacRosControlBridge')
-        except rospy.ROSException as e:
-            print("[ERROR] OmniIsaacRosControlBridge:", e)
+        self._ros_node()
 
     def shutdown(self):
         self._event_editor_step = None
-        for component in self._components:
-            component.stop()
+        self._event_timeline = None
+        self._stage_event = None
+        self._stop_components()
 
-    def _get_ros_control_bridge_schema(self):
+    def _ros_node(self):
+        node_name = carb.settings.get_settings().get("/exts/omni.isaac.ros_control_bridge/nodeName")
+        # check ROS master
+        try:
+            rosgraph.Master("/rostopic").getPid()
+        except:
+            print("[WARNING] {}: ROS master is not running",format(node_name))
+            return False
+        # start ROS node
+        try:
+            rospy.init_node(node_name)
+            print("[INFO] {} node started".format(node_name))
+        except rospy.ROSException as e:
+            print("[ERROR] {}:".format(node_name), e)
+            return False
+        return True
+
+    def _get_ros_control_bridge_schemas(self):
         schemas = []
         stage = self._usd_context.get_stage()
         for prim in Usd.PrimRange.AllPrims(stage.GetPrimAtPath("/")):
@@ -61,35 +76,48 @@ class RosControlBridge:
                 schemas.append(ROSControlSchema.RosControlGripperCommand(prim))
         return schemas
 
-    def _reload_components(self):
-        # stop components
+    def _stop_components(self):
         for component in self._components:
             component.stop()
+
+    def _reload_components(self):
+        # stop components
+        self._stop_components()
         # load components
         self._components = []
-        for schema in self._get_ros_control_bridge_schema():
+        self._skip_step = True
+        for schema in self._get_ros_control_bridge_schemas():
             if schema.__class__.__name__ == "RosControlFollowJointTrajectory":
                 self._components.append(RosControllerFollowJointTrajectory(self._dci, self._usd_context, schema))
             elif schema.__class__.__name__ == "RosControlGripperCommand":
                 self._components.append(RosControllerGripperCommand(self._dci, self._usd_context, schema))
 
-    def _on_editor_step_event(self, step):
-        if self._editor.is_playing():
+    def _on_editor_step_event(self, event):
+        if self._timeline.is_playing():
             for component in self._components:
+                if self._skip_step:
+                    self._skip_step = False
+                    return
+                # start components
                 if not component.started:
                     component.start()
                     return
-                component.step(step)
-        else:
-            for component in self._components:
-                if component.started:
-                    print("stop component")
-                    component.stop()
+                # step
+                component.step(event.payload["dt"])
+    
+    def _on_timeline_event(self, event):
+        # reload components
+        if event.type == int(omni.timeline.TimelineEventType.PLAY):
+            self._reload_components()
+            print("[INFO] RosControlBridge: components reloaded")
+        # stop components
+        elif event.type == int(omni.timeline.TimelineEventType.STOP) or event.type == int(omni.timeline.TimelineEventType.PAUSE):
+            self._stop_components()
+            print("[INFO] RosControlBridge: components stopped")
 
     def _on_stage_event(self, event):
-        print(event.type)
         if event.type == int(omni.usd.StageEventType.OPENED):
-            self._reload_components()
+            pass
 
 
 class RosController():
@@ -108,16 +136,20 @@ class RosController():
         raise NotImplementedError
 
     def stop(self):
-        print("[INFO] OmniIsaacRosControlBridge: stopping", self._schema.__class__.__name__)
+        print("[INFO] RosController: stopping", self._schema.__class__.__name__)
         self._shutdown_server()
         self.started = False
 
-    def step(self, step):
+    def step(self, dt):
         if self._ar and self._dof:
             self._dci.wake_up_articulation(self._ar)
             for k in self._dof:
-                if self._dof[k]["target"] is not None:
-                    self._dci.set_dof_position_target(self._dof[k]["dof"], self._dof[k]["target"])
+                # get current position/rotation
+                self._dof[k]["current"] = self._dci.get_dof_position(self._dof[k]["dof"])
+                # set target
+                target = self._dof[k]["target"]
+                if target is not None:
+                    self._dci.set_dof_position_target(self._dof[k]["dof"], target)
 
     def _start_server(self, action_name, ActionSpec):
         self._shutdown_server()
@@ -127,11 +159,11 @@ class RosController():
                                               cancel_cb=self._cancel_cb,
                                               auto_start=False)
         self._server.start()
-        print("[INFO] OmniIsaacRosControlBridge started", self._schema.GetPrim().GetPath())
+        print("[INFO] RosController server started", self._schema.GetPrim().GetPath())
 
     def _shutdown_server(self):
         # /opt/ros/melodic/lib/python2.7/dist-packages/actionlib/action_server.py
-        print("[INFO] OmniIsaacRosControlBridge shutdown", self._schema.GetPrim().GetPath())
+        print("[INFO] RosController server shutdown", self._schema.GetPrim().GetPath())
         if self._server:
             if self._server.started:
                 self._server.started = False
@@ -163,38 +195,41 @@ class RosControllerFollowJointTrajectory(RosController):
     
     def start(self):
         self.started = True
-        print("[INFO] OmniIsaacRosControlBridge: starting", self._schema.__class__.__name__)
+        print("[INFO] RosControllerFollowJointTrajectory: starting", self._schema.__class__.__name__)
 
         relationships = self._schema.GetArticulationPrimRel().GetTargets()
-        if relationships:
-            # check for articulation API
-            stage = self._usd_context.get_stage()
-            path = relationships[0].GetPrimPath().pathString
-            if not stage.GetPrimAtPath(path).HasAPI(PhysicsSchema.ArticulationAPI):
-                print("[WARNING] OmniIsaacRosControlBridge: prim {} doesn't have ArticulationAPI".format(path))
-                return
-            
-            # get articulation
-            self._ar = self._dci.get_articulation(path)
-            if self._ar == _dynamic_control.INVALID_HANDLE:
-                print("[WARNING] OmniIsaacRosControlBridge: prim {}: invalid handle".format(path))
-                return
+        if not len(relationships):
+            print("[WARNING] RosControllerFollowJointTrajectory: empty relationships")
+            return
 
-            # get DOF
-            self._dof = {}
-            for i in range(self._dci.get_articulation_dof_count(self._ar)):
-                dof = self._dci.get_articulation_dof(self._ar, i)
-                if dof != _dynamic_control.DofType.DOF_NONE:
-                    joint_name = self._dci.get_joint_name(self._dci.get_dof_joint(dof))
-                    self._dof[joint_name] = {"dof": dof, "target": None}
+        # check for articulation API
+        stage = self._usd_context.get_stage()
+        path = relationships[0].GetPrimPath().pathString
+        if not stage.GetPrimAtPath(path).HasAPI(PhysxSchema.PhysxArticulationAPI):
+            print("[WARNING] RosControllerFollowJointTrajectory: prim {} doesn't have PhysxArticulationAPI".format(path))
+            return
+        
+        # get articulation
+        self._ar = self._dci.get_articulation(path)
+        if self._ar == _dynamic_control.INVALID_HANDLE:
+            print("[WARNING] RosControllerFollowJointTrajectory: prim {}: invalid handle".format(path))
+            return
 
-            # build action name
-            _action_name = self._schema.GetRosNodePrefixAttr().Get() \
-                         + self._schema.GetControllerNameAttr().Get() \
-                         + self._schema.GetActionNamespaceAttr().Get()
+        # get DOF
+        self._dof = {}
+        for i in range(self._dci.get_articulation_dof_count(self._ar)):
+            dof = self._dci.get_articulation_dof(self._ar, i)
+            if dof != _dynamic_control.DofType.DOF_NONE:
+                joint_name = self._dci.get_joint_name(self._dci.get_dof_joint(dof))
+                self._dof[joint_name] = {"dof": dof, "target": None, "current": None, "error": None, "dt": None}
 
-            # start actionlib server
-            self._start_server(_action_name, control_msgs.msg.FollowJointTrajectoryAction)
+        # build action name
+        _action_name = self._schema.GetRosNodePrefixAttr().Get() \
+                        + self._schema.GetControllerNameAttr().Get() \
+                        + self._schema.GetActionNamespaceAttr().Get()
+
+        # start actionlib server
+        self._start_server(_action_name, control_msgs.msg.FollowJointTrajectoryAction)
     
     def _goal_cb(self, goal_handle):
         goal_handle.set_accepted("")
@@ -206,15 +241,27 @@ class RosControllerFollowJointTrajectory(RosController):
 
         # execute trajectories
         for trajectory in goal.trajectory.points:
+            # compute dt
+            dt = trajectory.time_from_start.to_sec() - last_time_from_start
+            last_time_from_start = trajectory.time_from_start.to_sec()
+
             # set target
             # TODO: add lock
             for i in range(len(joint_names)):
                 self._dof[joint_names[i]]["target"] = trajectory.positions[i]
-
-            # compute dt
-            dt = trajectory.time_from_start.to_sec() - last_time_from_start
-            last_time_from_start = trajectory.time_from_start.to_sec()
+                self._dof[joint_names[i]]["dt"] = dt
+            
             time.sleep(dt)
+            # t = time.time()
+            # while time.time() - t < dt:
+            #     time.sleep(0.01)    
+            #     error = 0
+            #     for k in self._dof:
+            #         if self._dof[k]["target"] is not None:
+            #             error += abs(self._dof[k]["target"] - self._dof[k]["current"])
+            #     print(error)
+            #     if error < 0.35:
+            #         break
             
             # TODO: add error
             # build feedback
@@ -251,21 +298,21 @@ class RosControllerGripperCommand(RosController):
     
     def start(self):
         self.started = True
-        print("[INFO] OmniIsaacRosControlBridge: starting", self._schema.__class__.__name__)
+        print("[INFO] RosControllerGripperCommand: starting", self._schema.__class__.__name__)
 
         relationships = self._schema.GetArticulationPrimRel().GetTargets()
         if len(relationships) > 1:
             # check for articulation API
             stage = self._usd_context.get_stage()
             path = relationships[0].GetPrimPath().pathString
-            if not stage.GetPrimAtPath(path).HasAPI(PhysicsSchema.ArticulationAPI):
-                print("[WARNING] OmniIsaacRosControlBridge: prim {} doesn't have ArticulationAPI".format(path))
+            if not stage.GetPrimAtPath(path).HasAPI(PhysxSchema.PhysxArticulationAPI):
+                print("[WARNING] RosControllerGripperCommand: prim {} doesn't have PhysxArticulationAPI".format(path))
                 return
             
             # get articulation
             self._ar = self._dci.get_articulation(path)
             if self._ar == _dynamic_control.INVALID_HANDLE:
-                print("[WARNING] OmniIsaacRosControlBridge: prim {}: invalid handle".format(path))
+                print("[WARNING] RosControllerGripperCommand: prim {}: invalid handle".format(path))
                 return
 
             # get DOF
