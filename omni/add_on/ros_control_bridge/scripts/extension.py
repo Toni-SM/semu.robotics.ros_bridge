@@ -1,17 +1,23 @@
 import omni.ext
+import carb
 
 from .. import _ros_control_bridge
-from .menu import RosControlBridgeMenu
 
 EXTENSION_NAME = "ROS Control Bridge"
 
 
 class Extension(omni.ext.IExt):
     def on_startup(self):
-        self._roscontrolbridge = _ros_control_bridge.acquire_roscontrolbridge_interface()
-        self._menu = RosControlBridgeMenu()
+        self._roscontrolbridge = None
+        ext_manager = omni.kit.app.get_app().get_extension_manager()
+        if ext_manager.is_extension_enabled("omni.isaac.ros2_bridge"):
+            carb.log_error("ROS Control Bridge extension cannot be enabled if ROS 2 Bridge is enabled")
+            ext_manager.set_extension_enabled("omni.add_on.ros_control_bridge", False)
+            return
 
+        self._roscontrolbridge = _ros_control_bridge.acquire_roscontrolbridge_interface()
+        
     def on_shutdown(self):
-        _ros_control_bridge.release_roscontrolbridge_interface(self._roscontrolbridge)
-        self._menu.shutdown()
-        self._menu = None
+        if self._roscontrolbridge is not None:
+            _ros_control_bridge.release_roscontrolbridge_interface(self._roscontrolbridge)
+        
