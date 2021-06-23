@@ -17,9 +17,9 @@ class Extension(omni.ext.IExt):
             ext_manager.set_extension_enabled("omni.add_on.ros_control_bridge", False)
             return
 
-        self._roscontrolbridge = _ros_control_bridge.acquire_roscontrolbridge_interface()
+        self._roscontrolbridge = _ros_control_bridge.acquire_ros_control_bridge_interface()
         
     def on_shutdown(self):
         if self._roscontrolbridge is not None:
-            _ros_control_bridge.release_roscontrolbridge_interface(self._roscontrolbridge)
+            _ros_control_bridge.release_ros_control_bridge_interface(self._roscontrolbridge)
         

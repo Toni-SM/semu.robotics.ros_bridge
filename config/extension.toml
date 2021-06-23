@@ -20,7 +20,7 @@ icon = "data/icon.png"
 "omni.isaac.dynamic_control" = {}
 "omni.isaac.ros_bridge" = {}
 "omni.usd.schema.add_on" = {}
-"omni.add_on.ros_control_bridge_ui" = {}
+"omni.add_on.ros_bridge_ui" = {}
 
 [[python.module]]
 name = "omni.add_on.ros_control_bridge"
@@ -29,4 +29,4 @@ name = "omni.add_on.ros_control_bridge"
 name = "omni.add_on.ros_control_bridge.tests"
 
 [settings]
-exts."omni.isaac.ros_control_bridge".nodeName = "OmniIsaacRosControlBridge"
+exts."omni.add_on.ros_control_bridge".nodeName = "OmniAddOnRosControlBridge"
