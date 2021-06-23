@@ -1,0 +1,31 @@
+[core]
+reloadable = true
+order = 0
+
+[package]
+version = "0.0.1"
+category = "Simulation"
+title = "ROS Bridge"
+description = "ROS interfaces used for general purpose"
+authors = ["Toni-SM"]
+repository = ""
+keywords = ["ROS"]
+changelog = "docs/CHANGELOG.md"
+readme = "docs/README.md"
+preview_image = "data/preview.png"
+icon = "data/icon.png"
+
+[dependencies]
+"omni.kit.uiapp" = {}
+"omni.isaac.ros_bridge" = {}
+"omni.usd.schema.add_on" = {}
+"omni.add_on.ros_bridge_ui" = {}
+
+[[python.module]]
+name = "omni.add_on.ros_bridge"
+
+[[python.module]]
+name = "omni.add_on.ros_bridge.tests"
+
+[settings]
+exts."omni.add_on.ros_bridge".nodeName = "OmniAddOnRosBridge"
