@@ -17,10 +17,10 @@ import omni.add_on.RosControlBridgeSchema as ROSControlSchema
 from rospy.names import reload_mappings
 
 
-def acquire_roscontrolbridge_interface(plugin_name=None, library_path=None):
+def acquire_ros_control_bridge_interface(plugin_name=None, library_path=None):
     return RosControlBridge()
 
-def release_roscontrolbridge_interface(bridge):
+def release_ros_control_bridge_interface(bridge):
     bridge.shutdown()
 
 
@@ -50,7 +50,7 @@ class RosControlBridge:
         self._stop_components()
 
     def _ros_node(self):
-        node_name = carb.settings.get_settings().get("/exts/omni.isaac.ros_control_bridge/nodeName")
+        node_name = carb.settings.get_settings().get("/exts/omni.add_on.ros_control_bridge/nodeName")
         # check ROS master
         try:
             rosgraph.Master("/rostopic").getPid()
