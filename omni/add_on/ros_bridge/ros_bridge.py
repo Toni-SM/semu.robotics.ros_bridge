@@ -142,8 +142,10 @@ class RosCompressedCamera(RosController):
 
         self._pub_rgb = None
         self._image_rgb = sensor_msgs.msg.CompressedImage()
+        self._image_rgb.format = "jpeg"
         self._pub_depth = None
         self._image_depth = sensor_msgs.msg.CompressedImage()
+        self._image_depth.format = "jpeg"
         
     def start(self):
         self.started = True
@@ -163,9 +165,12 @@ class RosCompressedCamera(RosController):
                 self._viewport_window = window
                 break
         
-        # TODO: create a new viewport_window if not exits
+        # TODO: Create a new viewport_window if not exits
         # TODO: GetResolutionAttr
-        # TODO: GetFrameIdAttr
+
+        # frame id
+        self._image_rgb.header.frame_id = self._schema.GetFrameIdAttr().Get()
+        self._image_depth.header.frame_id = self._schema.GetFrameIdAttr().Get()
 
         # publishers
         queue_size = self._schema.GetQueueSizeAttr().Get()
@@ -224,7 +229,7 @@ class RosCompressedCamera(RosController):
                     print("[ERROR] sensors.get_depth:", e)
                     frame = None
                 if frame is not None:
-                    if np.max(frame) != 0:
+                    if np.isfinite(frame).all() and np.max(frame) != 0:
                         frame /= np.max(frame)
                         frame *= 255
                     self._image_depth.data = np.array(cv2.imencode('.jpg', cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_BGR2RGB))[1]).tostring()
