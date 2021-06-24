@@ -206,57 +206,33 @@ class RosCompressedCamera(RosController):
 
             # publish rgb
             if "rgb" in self._gt_sensors:
-                frame = sensors.get_rgb(self._viewport_window)
-                self._image_rgb.data = np.array(cv2.imencode('.jpg', cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))[1]).tostring()
-                if self._pub_rgb is not None:
-                    self._pub_rgb.publish(self._image_rgb)
+                try:
+                    frame = sensors.get_rgb(self._viewport_window)
+                except ValueError as e:
+                    print("[ERROR] sensors.get_rgb:", e)
+                    frame = None
+                if frame is not None:
+                    self._image_rgb.data = np.array(cv2.imencode('.jpg', cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))[1]).tostring()
+                    if self._pub_rgb is not None:
+                        self._pub_rgb.publish(self._image_rgb)
+            
             # publish depth
             if "depth" in self._gt_sensors:
-                frame = sensors.get_depth(self._viewport_window)
-                self._image_depth.data = np.array(cv2.imencode('.jpg', cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))[1]).tostring()
-                if self._pub_depth is not None:
-                    self._pub_depth.publish(self._image_depth)
+                try:
+                    frame = sensors.get_depth(self._viewport_window)
+                except ValueError as e:
+                    print("[ERROR] sensors.get_depth:", e)
+                    frame = None
+                if frame is not None:
+                    if np.max(frame) != 0:
+                        frame /= np.max(frame)
+                        frame *= 255
+                    self._image_depth.data = np.array(cv2.imencode('.jpg', cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_BGR2RGB))[1]).tostring()
+                    if self._pub_depth is not None:
+                        self._pub_depth.publish(self._image_depth)
             
             # compute dt
             dt = self._period - (time.time() - t0)
             if dt > 0:
                 time.sleep(dt)
             
-
-
-
-
-        # relationships = self._schema.GetArticulationPrimRel().GetTargets()
-        # if not len(relationships):
-        #     print("[WARNING] RosControllerFollowJointTrajectory: empty relationships")
-        #     return
-
-        # # check for articulation API
-        # stage = self._usd_context.get_stage()
-        # path = relationships[0].GetPrimPath().pathString
-        # if not stage.GetPrimAtPath(path).HasAPI(PhysxSchema.PhysxArticulationAPI):
-        #     print("[WARNING] RosControllerFollowJointTrajectory: prim {} doesn't have PhysxArticulationAPI".format(path))
-        #     return
-        
-        # # get articulation
-        # self._ar = self._dci.get_articulation(path)
-        # if self._ar == _dynamic_control.INVALID_HANDLE:
-        #     print("[WARNING] RosControllerFollowJointTrajectory: prim {}: invalid handle".format(path))
-        #     return
-
-        # # get DOF
-        # self._dof = {}
-        # for i in range(self._dci.get_articulation_dof_count(self._ar)):
-        #     dof = self._dci.get_articulation_dof(self._ar, i)
-        #     if dof != _dynamic_control.DofType.DOF_NONE:
-        #         joint_name = self._dci.get_joint_name(self._dci.get_dof_joint(dof))
-        #         self._dof[joint_name] = {"dof": dof, "target": None, "current": None, "error": None, "dt": None}
-
-        # # build action name
-        # _action_name = self._schema.GetRosNodePrefixAttr().Get() \
-        #                 + self._schema.GetControllerNameAttr().Get() \
-        #                 + self._schema.GetActionNamespaceAttr().Get()
-
-        # # start actionlib server
-        # self._start_server(_action_name, control_msgs.msg.FollowJointTrajectoryAction)
-    
