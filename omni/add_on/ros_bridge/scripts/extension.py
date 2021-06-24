@@ -6,7 +6,7 @@ except:
     print(">>>> [DEVELOPMENT] import ros_bridge")
     from .. import ros_bridge as _ros_bridge
 
-EXTENSION_NAME = "ROS Bridge (ADD-ON)"
+EXTENSION_NAME = "ROS Bridge (add-on)"
 
 
 class Extension(omni.ext.IExt):

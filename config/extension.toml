@@ -5,7 +5,7 @@ order = 0
 [package]
 version = "0.0.1"
 category = "Simulation"
-title = "ROS Bridge"
+title = "ROS Bridge (add-on)"
 description = "ROS interfaces used for general purpose"
 authors = ["Toni-SM"]
 repository = ""
