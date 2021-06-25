@@ -3,6 +3,7 @@ import carb
 try:
     from .. import _ros_control_bridge
 except:
+    print(">>>> [DEVELOPMENT] import ros_control_bridge")
     from .. import ros_control_bridge as _ros_control_bridge
 
 EXTENSION_NAME = "ROS Control Bridge"
