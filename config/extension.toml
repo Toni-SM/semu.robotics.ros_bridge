@@ -3,10 +3,10 @@ reloadable = true
 order = 0
 
 [package]
-version = "0.0.1"
+version = "0.0.2"
 category = "Simulation"
 title = "ROS Bridge (add-on)"
-description = "ROS interfaces used for general purpose"
+description = "ROS interfaces used for add-ons"
 authors = ["Toni-SM"]
 repository = ""
 keywords = ["ROS"]
