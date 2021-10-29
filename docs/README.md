@@ -1,3 +1,6 @@
-# Usage
+# omni.add_on.ros_bridge
 
-To enable this extension, go to the Extensions window and enable omni.add_on.ros_bridge extension. Visit https://github.com/Toni-SM/omni.add_on.ros_bridge for more details about how tu use this extension.
+This extension enables to publish additional topics and to enable useful services for the development of robotic applications in [ROS](https://www.ros.org/)
+
+Visit https://github.com/Toni-SM/omni.add_on.ros_bridge to read more about its use
+
