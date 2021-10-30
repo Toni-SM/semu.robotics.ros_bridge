@@ -6,15 +6,13 @@ except:
     print(">>>> [DEVELOPMENT] import ros_bridge")
     from .. import ros_bridge as _ros_bridge
 
-EXTENSION_NAME = "ROS Bridge (add-on)"
-
 
 class Extension(omni.ext.IExt):
     def on_startup(self):
         self._rosbridge = None
         ext_manager = omni.kit.app.get_app().get_extension_manager()
         if ext_manager.is_extension_enabled("omni.isaac.ros2_bridge"):
-            carb.log_error("ROS Bridge extension cannot be enabled if ROS 2 Bridge is enabled")
+            carb.log_error("ROS Bridge (add-on) extension cannot be enabled if ROS 2 Bridge is enabled")
             ext_manager.set_extension_enabled("omni.add_on.ros_bridge", False)
             return
 
