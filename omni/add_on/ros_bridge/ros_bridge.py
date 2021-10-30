@@ -7,7 +7,7 @@ import numpy as np
 import carb
 import omni
 import omni.kit
-from pxr import Usd
+from pxr import Usd, Gf
 from omni.syntheticdata import sensors
 
 import rospy
@@ -16,7 +16,7 @@ import sensor_msgs.msg
 
 import omni.add_on.RosBridgeSchema as ROSSchema
 
-from . import _GetPrims, _GetPrimAttribute, _GetPrimAttributes
+from .srv import _GetPrims, _GetPrimAttribute, _GetPrimAttributes, _SetPrimAttribute
 
 
 def acquire_ros_bridge_interface(plugin_name=None, library_path=None):
@@ -259,10 +259,66 @@ class RosAttribute(RosController):
         self._srv_setter = None
 
     def _process_setter_request(self, request):
+        response = _SetPrimAttribute.SetPrimAttributeResponse()
+        response.success = False
         if self._schema.GetEnabledAttr().Get():
-            print(request)
-            pass
-
+            stage = self._usd_context.get_stage()
+            # get prim
+            if stage.GetPrimAtPath(request.path).IsValid():
+                prim = stage.GetPrimAtPath(request.path)
+                if request.attribute and prim.HasAttribute(request.attribute):
+                    # attribute
+                    attribute = prim.GetAttribute(request.attribute)
+                    attribute_type = type(attribute.Get()).__name__
+                    try:
+                        # value
+                        value = json.loads(request.value)
+                        # parse data
+                        if attribute_type in ['Vec2d', 'Vec2f', 'Vec2h', 'Vec2i']:
+                            attribute.Set(type(attribute.Get())(value))
+                        elif attribute_type in ['Vec3d', 'Vec3f', 'Vec3h', 'Vec3i']:
+                            attribute.Set(type(attribute.Get())(value))
+                        elif attribute_type in ['Vec4d', 'Vec4f', 'Vec4h', 'Vec4i']:
+                            attribute.Set(type(attribute.Get())(value))
+                        elif attribute_type in ['Quatd', 'Quatf', 'Quath']:
+                            attribute.Set(type(attribute.Get())(*value))
+                        elif attribute_type in ['Matrix4d', 'Matrix4f']:
+                            attribute.Set(type(attribute.Get())(value))
+                        elif attribute_type.startswith('Vec') and attribute_type.endswith('Array'):
+                            attribute.Set(type(attribute.Get())(value))
+                        elif attribute_type.startswith('Matrix') and attribute_type.endswith('Array'):
+                            if attribute_type.endswith("dArray"):
+                                attribute.Set(type(attribute.Get())([Gf.Matrix2d(v) for v in value]))
+                            elif attribute_type.endswith("fArray"):
+                                attribute.Set(type(attribute.Get())([Gf.Matrix2f(v) for v in value]))
+                        elif attribute_type.startswith('Quat') and attribute_type.endswith('Array'):
+                            if attribute_type.endswith("dArray"):
+                                attribute.Set(type(attribute.Get())([Gf.Quatd(*v) for v in value]))
+                            elif attribute_type.endswith("fArray"):
+                                attribute.Set(type(attribute.Get())([Gf.Quatf(*v) for v in value]))
+                            elif attribute_type.endswith("hArray"):
+                                attribute.Set(type(attribute.Get())([Gf.Quath(*v) for v in value]))
+                        elif attribute_type.endswith('Array'):
+                            attribute.Set(type(attribute.Get())(value))
+                        elif attribute_type in ['AssetPath']:
+                            attribute.Set(type(attribute.Get())(value))
+                        elif attribute_type in ['NoneType']:
+                            pass
+                        else:
+                            attribute.Set(type(attribute.Get())(value))
+                        response.success = True
+                    except Exception as e:
+                        print("[ERROR] srv {} request for {} ({}: {}): {}".format(self._srv_setter.resolved_name, request.path, request.attribute, value, e))
+                        response.success = False
+                        response.message = str(e)
+                else:
+                    response.message = "Prim has not attribute {}".format(request.attribute)
+            else:
+                response.message = "Invalid prim ({})".format(request.path)
+        else:
+            response.message = "RosAttribute prim is not enabled"
+        return response
+        
     def _process_getter_request(self, request):
         response = _GetPrimAttribute.GetPrimAttributeResponse()
         response.success = False
@@ -273,34 +329,34 @@ class RosAttribute(RosController):
                 prim = stage.GetPrimAtPath(request.path)
                 if request.attribute and prim.HasAttribute(request.attribute):
                     attribute = prim.GetAttribute(request.attribute)
-                    response.data_type = type(attribute.Get()).__name__
+                    response.type = type(attribute.Get()).__name__
                     # parse data
                     response.success = True
-                    if response.data_type in ['Vec2d', 'Vec2f', 'Vec2h', 'Vec2i']:
+                    if response.type in ['Vec2d', 'Vec2f', 'Vec2h', 'Vec2i']:
                         data = attribute.Get()
                         response.value = json.dumps([data[i] for i in range(2)])
-                    elif response.data_type in ['Vec3d', 'Vec3f', 'Vec3h', 'Vec3i']:
+                    elif response.type in ['Vec3d', 'Vec3f', 'Vec3h', 'Vec3i']:
                         data = attribute.Get()
                         response.value = json.dumps([data[i] for i in range(3)])
-                    elif response.data_type in ['Vec4d', 'Vec4f', 'Vec4h', 'Vec4i']:
+                    elif response.type in ['Vec4d', 'Vec4f', 'Vec4h', 'Vec4i']:
                         data = attribute.Get()
                         response.value = json.dumps([data[i] for i in range(4)])
-                    elif response.data_type in ['Quatd', 'Quatf', 'Quath']:
+                    elif response.type in ['Quatd', 'Quatf', 'Quath']:
                         data = attribute.Get()
                         response.value = json.dumps([data.real, data.imaginary[0], data.imaginary[1], data.imaginary[2]])                    
-                    elif response.data_type in ['Matrix4d', 'Matrix4f']:
+                    elif response.type in ['Matrix4d', 'Matrix4f']:
                         data = attribute.Get()
                         response.value = json.dumps([[data.GetRow(i)[j] for j in range(data.dimension[1])] for i in range(data.dimension[0])])
-                    elif response.data_type.startswith('Vec') and response.data_type.endswith('Array'):
+                    elif response.type.startswith('Vec') and response.type.endswith('Array'):
                         data = attribute.Get()
                         response.value = json.dumps([[d[i] for i in range(len(d))] for d in data])
-                    elif response.data_type.startswith('Matrix') and response.data_type.endswith('Array'):
+                    elif response.type.startswith('Matrix') and response.type.endswith('Array'):
                         data = attribute.Get()
                         response.value = json.dumps([[[d.GetRow(i)[j] for j in range(d.dimension[1])] for i in range(d.dimension[0])] for d in data])
-                    elif response.data_type.startswith('Quat') and response.data_type.endswith('Array'):
+                    elif response.type.startswith('Quat') and response.type.endswith('Array'):
                         data = attribute.Get()
                         response.value = json.dumps([[d.real, d.imaginary[0], d.imaginary[1], d.imaginary[2]] for d in data])
-                    elif response.data_type.endswith('Array'):
+                    elif response.type.endswith('Array'):
                         try:
                             response.value = json.dumps(list(attribute.Get()))
                         except Exception as e:
@@ -308,7 +364,7 @@ class RosAttribute(RosController):
                             print("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
                             response.success = False
                             response.message = "Unknow type {}".format(type(attribute.Get()))
-                    elif response.data_type.endswith('AssetPath'):
+                    elif response.type in ['AssetPath']:
                         response.value = json.dumps(str(attribute.Get().path))
                     else:
                         try:
@@ -336,11 +392,11 @@ class RosAttribute(RosController):
                 prim = stage.GetPrimAtPath(request.path)
                 for attribute in prim.GetAttributes():
                     if attribute.GetNamespace():
-                        response.base_names.append("{}:{}".format(attribute.GetNamespace(), attribute.GetBaseName()))
+                        response.names.append("{}:{}".format(attribute.GetNamespace(), attribute.GetBaseName()))
                     else:
-                        response.base_names.append(attribute.GetBaseName())
-                    response.display_names.append(attribute.GetDisplayName())
-                    response.data_types.append(type(attribute.Get()).__name__)
+                        response.names.append(attribute.GetBaseName())
+                    response.displays.append(attribute.GetDisplayName())
+                    response.types.append(type(attribute.Get()).__name__)
                     response.success = True
             else:
                 response.message = "Invalid prim ({})".format(request.path)
@@ -382,9 +438,9 @@ class RosAttribute(RosController):
         self._srv_attributes = rospy.Service(service_name, _GetPrimAttributes.GetPrimAttributes, self._process_attributes_request)
         print("[INFO] RosAttribute: register srv:", self._srv_attributes.resolved_name)
 
-        # service_name = self._schema.GetSetterSrvTopicAttr().Get()
-        # self._srv_setter = rospy.Service(service_name, _AttributeGetter.AttributeGetter, self._process_setter_request)
-        # print("[INFO] RosAttribute: register srv:", self._srv_setter.resolved_name)
+        service_name = self._schema.GetSetterSrvTopicAttr().Get()
+        self._srv_setter = rospy.Service(service_name, _SetPrimAttribute.SetPrimAttribute, self._process_setter_request)
+        print("[INFO] RosAttribute: register srv:", self._srv_setter.resolved_name)
         
     def stop(self):
         if self._srv_prims is not None:
