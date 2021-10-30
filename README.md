@@ -49,7 +49,7 @@ The following components are supported:
 
 * **Attribute (ROS service):** enables services for getting and setting the attributes of a prim under the following services. The ROS package [add_on_msgs](https://github.com/Toni-SM/omni.add_on.ros_bridge/releases) contains the definition of the messages (download it and add it to a catkin workspace). A sample code of a [python client application](https://github.com/Toni-SM/omni.add_on.ros_bridge/releases) is also provided
 
-Prim attributes are obtained and modified as JSON (applied directly to the data, without keys). Arrays, vectors, matrixes and other numeric classes (```pxr.Gf.Vec3f```, ```pxr.Gf.Matrix4d```, ```pxr.Gf.Quatf```, ```pxr.Vt.Vec2fArray```, etc.) are interpreted as a list of numbers (row first)
+  Prim attributes are retrieved and modified as JSON (applied directly to the data, without keys). Arrays, vectors, matrixes and other numeric classes (```pxr.Gf.Vec3f```, ```pxr.Gf.Matrix4d```, ```pxr.Gf.Quatf```, ```pxr.Vt.Vec2fArray```, etc.) are interpreted as a list of numbers (row first)
 
   - **add_on_msgs.srv.GetPrims**: Get all prim path under the specified path
 
