@@ -426,19 +426,19 @@ class RosAttribute(RosController):
         self.started = True
         print("[INFO] RosAttribute: starting", self._schema.__class__.__name__)
 
-        service_name = "/get_prims"
+        service_name = self._schema.GetPrimsSrvTopicAttr().Get()
         self._srv_prims = rospy.Service(service_name, _GetPrims.GetPrims, self._process_prims_request)
         print("[INFO] RosAttribute: register srv:", self._srv_prims.resolved_name)
 
-        service_name = self._schema.GetGetterSrvTopicAttr().Get()
+        service_name = self._schema.GetGetAttrSrvTopicAttr().Get()
         self._srv_getter = rospy.Service(service_name, _GetPrimAttribute.GetPrimAttribute, self._process_getter_request)
         print("[INFO] RosAttribute: register srv:", self._srv_getter.resolved_name)
 
-        service_name = "/get_attributes"
+        service_name = self._schema.GetAttributesSrvTopicAttr().Get()
         self._srv_attributes = rospy.Service(service_name, _GetPrimAttributes.GetPrimAttributes, self._process_attributes_request)
         print("[INFO] RosAttribute: register srv:", self._srv_attributes.resolved_name)
 
-        service_name = self._schema.GetSetterSrvTopicAttr().Get()
+        service_name = self._schema.GetSetAttrSrvTopicAttr().Get()
         self._srv_setter = rospy.Service(service_name, _SetPrimAttribute.SetPrimAttribute, self._process_setter_request)
         print("[INFO] RosAttribute: register srv:", self._srv_setter.resolved_name)
         
