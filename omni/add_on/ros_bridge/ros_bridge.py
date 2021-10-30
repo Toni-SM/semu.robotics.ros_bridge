@@ -1,19 +1,22 @@
+import cv2
+import json
 import time
 import threading
 import numpy as np
-import cv2
 
+import carb
 import omni
 import omni.kit
-import carb
 from pxr import Usd
 from omni.syntheticdata import sensors
 
 import rospy
-import sensor_msgs.msg
 import rosgraph
+import sensor_msgs.msg
 
 import omni.add_on.RosBridgeSchema as ROSSchema
+
+from . import _GetPrims, _GetPrimAttribute, _GetPrimAttributes
 
 
 def acquire_ros_bridge_interface(plugin_name=None, library_path=None):
@@ -69,6 +72,8 @@ class RosBridge:
         for prim in Usd.PrimRange.AllPrims(stage.GetPrimAtPath("/")):
             if prim.GetTypeName() == "RosCompressedCamera":
                 schemas.append(ROSSchema.RosCompressedCamera(prim))
+            elif prim.GetTypeName() == "RosAttribute":
+                schemas.append(ROSSchema.RosAttribute(prim))
         return schemas
 
     def _stop_components(self):
@@ -84,6 +89,8 @@ class RosBridge:
         for schema in self._get_ros_bridge_schemas():
             if schema.__class__.__name__ == "RosCompressedCamera":
                 self._components.append(RosCompressedCamera(self._viewport_interface, self._usd_context, schema))
+            elif schema.__class__.__name__ == "RosAttribute":
+                self._components.append(RosAttribute(self._usd_context, schema))
 
     def _on_editor_step_event(self, event):
         if self._timeline.is_playing():
@@ -133,7 +140,7 @@ class RosController():
 
 class RosCompressedCamera(RosController):
     def __init__(self, viewport_interface, usd_context, schema):
-        super().__init__(usd_context, schema)
+        super(RosCompressedCamera, self).__init__(usd_context, schema)
 
         self._viewport_interface = viewport_interface
         
@@ -200,7 +207,7 @@ class RosCompressedCamera(RosController):
             print("[INFO] RosCompressedCamera: unregister depth:", self._pub_depth.name)
             self._pub_depth.unregister()
             self._pub_depth = None
-        super().stop()
+        super(RosCompressedCamera, self).stop()
 
     def step(self, dt):
         pass
@@ -240,4 +247,165 @@ class RosCompressedCamera(RosController):
             dt = self._period - (time.time() - t0)
             if dt > 0:
                 time.sleep(dt)
+            
+
+class RosAttribute(RosController):
+    def __init__(self, usd_context, schema):
+        super(RosAttribute, self).__init__(usd_context, schema)
+
+        self._srv_prims = None
+        self._srv_attributes = None
+        self._srv_getter = None
+        self._srv_setter = None
+
+    def _process_setter_request(self, request):
+        if self._schema.GetEnabledAttr().Get():
+            print(request)
+            pass
+
+    def _process_getter_request(self, request):
+        response = _GetPrimAttribute.GetPrimAttributeResponse()
+        response.success = False
+        if self._schema.GetEnabledAttr().Get():
+            stage = self._usd_context.get_stage()
+            # get prim
+            if stage.GetPrimAtPath(request.path).IsValid():
+                prim = stage.GetPrimAtPath(request.path)
+                if request.attribute and prim.HasAttribute(request.attribute):
+                    attribute = prim.GetAttribute(request.attribute)
+                    response.data_type = type(attribute.Get()).__name__
+                    # parse data
+                    response.success = True
+                    if response.data_type in ['Vec2d', 'Vec2f', 'Vec2h', 'Vec2i']:
+                        data = attribute.Get()
+                        response.value = json.dumps([data[i] for i in range(2)])
+                    elif response.data_type in ['Vec3d', 'Vec3f', 'Vec3h', 'Vec3i']:
+                        data = attribute.Get()
+                        response.value = json.dumps([data[i] for i in range(3)])
+                    elif response.data_type in ['Vec4d', 'Vec4f', 'Vec4h', 'Vec4i']:
+                        data = attribute.Get()
+                        response.value = json.dumps([data[i] for i in range(4)])
+                    elif response.data_type in ['Quatd', 'Quatf', 'Quath']:
+                        data = attribute.Get()
+                        response.value = json.dumps([data.real, data.imaginary[0], data.imaginary[1], data.imaginary[2]])                    
+                    elif response.data_type in ['Matrix4d', 'Matrix4f']:
+                        data = attribute.Get()
+                        response.value = json.dumps([[data.GetRow(i)[j] for j in range(data.dimension[1])] for i in range(data.dimension[0])])
+                    elif response.data_type.startswith('Vec') and response.data_type.endswith('Array'):
+                        data = attribute.Get()
+                        response.value = json.dumps([[d[i] for i in range(len(d))] for d in data])
+                    elif response.data_type.startswith('Matrix') and response.data_type.endswith('Array'):
+                        data = attribute.Get()
+                        response.value = json.dumps([[[d.GetRow(i)[j] for j in range(d.dimension[1])] for i in range(d.dimension[0])] for d in data])
+                    elif response.data_type.startswith('Quat') and response.data_type.endswith('Array'):
+                        data = attribute.Get()
+                        response.value = json.dumps([[d.real, d.imaginary[0], d.imaginary[1], d.imaginary[2]] for d in data])
+                    elif response.data_type.endswith('Array'):
+                        try:
+                            response.value = json.dumps(list(attribute.Get()))
+                        except Exception as e:
+                            print("[UNKNOW]", type(attribute.Get()))
+                            print("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
+                            response.success = False
+                            response.message = "Unknow type {}".format(type(attribute.Get()))
+                    elif response.data_type.endswith('AssetPath'):
+                        response.value = json.dumps(str(attribute.Get().path))
+                    else:
+                        try:
+                            response.value = json.dumps(attribute.Get())
+                        except Exception as e:
+                            print("[UNKNOW]", type(attribute.Get()), attribute.Get())
+                            print("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
+                            response.success = False
+                            response.message = "Unknow type {}".format(type(attribute.Get()))
+                else:
+                    response.message = "Prim has not attribute {}".format(request.attribute)
+            else:
+                response.message = "Invalid prim ({})".format(request.path)
+        else:
+            response.message = "RosAttribute prim is not enabled"
+        return response
+
+    def _process_attributes_request(self, request):
+        response = _GetPrimAttributes.GetPrimAttributesResponse()
+        response.success = False
+        if self._schema.GetEnabledAttr().Get():
+            stage = self._usd_context.get_stage()
+            # get prim
+            if stage.GetPrimAtPath(request.path).IsValid():
+                prim = stage.GetPrimAtPath(request.path)
+                for attribute in prim.GetAttributes():
+                    if attribute.GetNamespace():
+                        response.base_names.append("{}:{}".format(attribute.GetNamespace(), attribute.GetBaseName()))
+                    else:
+                        response.base_names.append(attribute.GetBaseName())
+                    response.display_names.append(attribute.GetDisplayName())
+                    response.data_types.append(type(attribute.Get()).__name__)
+                    response.success = True
+            else:
+                response.message = "Invalid prim ({})".format(request.path)
+        else:
+            response.message = "RosAttribute prim is not enabled"
+        return response
+    
+    def _process_prims_request(self, request):
+        response = _GetPrims.GetPrimsResponse()
+        response.success = False
+        if self._schema.GetEnabledAttr().Get():
+            stage = self._usd_context.get_stage()
+            # get prims
+            if not request.path or stage.GetPrimAtPath(request.path).IsValid():
+                path = request.path if request.path else "/"
+                for prim in Usd.PrimRange.AllPrims(stage.GetPrimAtPath(path)):
+                    response.paths.append(str(prim.GetPath()))
+                    response.types.append(prim.GetTypeName())
+                    response.success = True
+            else:
+                response.message = "Invalid search path ({})".format(request.path)
+        else:
+            response.message = "RosAttribute prim is not enabled"
+        return response
+
+    def start(self):
+        self.started = True
+        print("[INFO] RosAttribute: starting", self._schema.__class__.__name__)
+
+        service_name = "/get_prims"
+        self._srv_prims = rospy.Service(service_name, _GetPrims.GetPrims, self._process_prims_request)
+        print("[INFO] RosAttribute: register srv:", self._srv_prims.resolved_name)
+
+        service_name = self._schema.GetGetterSrvTopicAttr().Get()
+        self._srv_getter = rospy.Service(service_name, _GetPrimAttribute.GetPrimAttribute, self._process_getter_request)
+        print("[INFO] RosAttribute: register srv:", self._srv_getter.resolved_name)
+
+        service_name = "/get_attributes"
+        self._srv_attributes = rospy.Service(service_name, _GetPrimAttributes.GetPrimAttributes, self._process_attributes_request)
+        print("[INFO] RosAttribute: register srv:", self._srv_attributes.resolved_name)
+
+        # service_name = self._schema.GetSetterSrvTopicAttr().Get()
+        # self._srv_setter = rospy.Service(service_name, _AttributeGetter.AttributeGetter, self._process_setter_request)
+        # print("[INFO] RosAttribute: register srv:", self._srv_setter.resolved_name)
+        
+    def stop(self):
+        if self._srv_prims is not None:
+            print("[INFO] RosAttribute: unregister srv:", self._srv_prims.resolved_name)
+            self._srv_prims.shutdown()
+            self._srv_prims = None
+        if self._srv_getter is not None:
+            print("[INFO] RosAttribute: unregister srv:", self._srv_getter.resolved_name)
+            self._srv_getter.shutdown()
+            self._srv_getter = None
+        if self._srv_attributes is not None:
+            print("[INFO] RosAttribute: unregister srv:", self._srv_attributes.resolved_name)
+            self._srv_attributes.shutdown()
+            self._srv_attributes = None
+        if self._srv_setter is not None:
+            print("[INFO] RosAttribute: unregister srv:", self._srv_setter.resolved_name)
+            self._srv_setter.shutdown()
+            self._srv_setter = None
+        super(RosAttribute, self).stop()
+
+    def step(self, dt):
+        pass
+        
             
