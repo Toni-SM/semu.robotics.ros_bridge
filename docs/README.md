@@ -1,3 +1,6 @@
-# Usage
+# omni.add_on.ros_control_bridge
 
-To enable this extension, go to the Extensions window and enable omni.add_on.ros_control_bridge extension. Visit https://github.com/Toni-SM/omni.add_on.ros_control_bridge for more details about how tu use this extension.
+This extension enables the ROS action interfaces used for controlling robots. Particularly those used by MoveIt to talk with the controllers on the robot (FollowJointTrajectory and GripperCommand)
+
+Visit https://github.com/Toni-SM/omni.add_on.ros_control_bridge to read more about its use
+

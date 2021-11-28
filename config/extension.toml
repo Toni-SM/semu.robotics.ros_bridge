@@ -3,16 +3,15 @@ reloadable = true
 order = 0
 
 [package]
-version = "0.0.1"
+version = "0.0.2"
 category = "Simulation"
 title = "ROS Control Bridge"
 description = "ROS action interfaces used for controlling robots"
 authors = ["Toni-SM"]
 repository = ""
-keywords = ["ROS", "control"]
+keywords = ["add-on", "ROS", "control"]
 changelog = "docs/CHANGELOG.md"
 readme = "docs/README.md"
-preview_image = "data/preview.png"
 icon = "data/icon.png"
 
 [dependencies]
@@ -20,7 +19,6 @@ icon = "data/icon.png"
 "omni.isaac.dynamic_control" = {}
 "omni.isaac.ros_bridge" = {}
 "omni.usd.schema.add_on" = {}
-"omni.add_on.ros_bridge_ui" = {}
 
 [[python.module]]
 name = "omni.add_on.ros_control_bridge"
