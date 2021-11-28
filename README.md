@@ -1,13 +1,13 @@
-## ROS Control Bridge for NVIDIA Omniverse Isaac Sim
+## ROS Control Bridge (add-on) for NVIDIA Omniverse Isaac Sim
 
-> This extension enables the **ROS action interfaces used for controlling robots**. Particularly those used by [MoveIt](https://moveit.ros.org/) to talk with the controllers on the robot. You can combine Isaac Sim, ROS Control, and MoveIt for a powerful robotics development platform
+> This extension enables the **ROS action interfaces used for controlling robots**. Particularly those used by [MoveIt](https://moveit.ros.org/) to talk with the controllers on the robot (**FollowJointTrajectory** and **GripperCommand**)
 
 <br>
 
 ### Table of Contents
 
 - [Prerequisites](#prerequisites)
-- [Add the extension to NVIDIA Omniverse Isaac Sim and enable it](#extension)
+- [Add the extension to an NVIDIA Omniverse app and enable it](#extension)
 - [Control your robot using MoveIt](#control)
 - [Configure a FollowJointTrajectory action](#follow_joint_trajectory)
 - [Configure a GripperCommand action](#gripper_command)
@@ -17,19 +17,25 @@
 <a name="prerequisites"></a>
 ### Prerequisites
 
-All Isaac Sim's [ROS Bridge extension prerequisites](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ext_omni_isaac_ros_bridge.html#prerequisites) must be fulfilled before running this extension. In addition, this extension requires the following extensions to be present in the Isaac Sim's extension path:
 
-* [omni.usd.schema.add_on](https://github.com/Toni-SM/omni.usd.schema.add_on): USD add-on schemas
-* [omni.add_on.ros_bridge_ui](https://github.com/Toni-SM/omni.add_on.ros_bridge_ui): ROS Bridge add-on UI
+All prerequisites described in [ROS & ROS2 Bridge](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ext_omni_isaac_ros_bridge.html) must be fulfilled before running this extension. In addition, this extension requires the following extensions to be present in the Isaac Sim:
+
+- [omni.usd.schema.add_on](https://github.com/Toni-SM/omni.usd.schema.add_on): USD add-on schemas
 
 <br>
 
 <a name="extension"></a>
-### Add the extension to NVIDIA Omniverse Isaac Sim and enable it
+### Add the extension to an NVIDIA Omniverse app and enable it
 
+1. Add the the extension by following the steps described in [Extension Search Paths](https://docs.omniverse.nvidia.com/py/kit/docs/guide/extensions.html#extension-search-paths) or simply download and unzip the latest [release](https://github.com/Toni-SM/omni.usd.schema.add_on/releases) in one of the extension folders such as ```PATH_TO_OMNIVERSE_APP/exts```
 
-1. Download the latest [release](https://github.com/Toni-SM/omni.add_on.ros_control_bridge/releases), or any release according to your Isaac Sim version, and unzip it into the Isaac Sim's extension path (```/isaac-sim/exts```)
-2. Enable the extension in the menu *Window > Extensions* under the same name
+    Git url (git+https) as extension search path: 
+    
+    ```
+    git+https://github.com/Toni-SM/omni.add_on.ros_control_bridge.git?branch=main&dir=exts
+    ```
+
+2. Enable the extension by following the steps described in [Extension Enabling/Disabling](https://docs.omniverse.nvidia.com/py/kit/docs/guide/extensions.html#extension-enabling-disabling)
 
 <br>
 
