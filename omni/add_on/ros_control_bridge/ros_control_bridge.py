@@ -1,6 +1,3 @@
-from logging import error
-from subprocess import check_call
-from threading import currentThread
 import time
 
 import omni
@@ -14,7 +11,6 @@ import control_msgs.msg     # apt-get install ros-<distro>-control-msgs
 import rosgraph
 
 import omni.add_on.RosControlBridgeSchema as ROSControlSchema
-from rospy.names import reload_mappings
 
 
 def acquire_ros_control_bridge_interface(plugin_name=None, library_path=None):
