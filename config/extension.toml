@@ -20,6 +20,7 @@ icon = "data/icon.png"
 "omni.isaac.ros_bridge" = {}
 "omni.usd.schema.add_on" = {}
 "omni.add_on.ros_bridge_ui" = {}
+"omni.kit.pip_archive" = {} # pulls in numpy and opencv
 
 [[python.module]]
 name = "omni.add_on.ros_bridge"

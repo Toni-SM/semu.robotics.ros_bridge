@@ -1,14 +1,25 @@
-import cv2
 import json
 import time
 import threading
-import numpy as np
 
-import carb
 import omni
+import carb
 import omni.kit
 from pxr import Usd, Gf
 from omni.syntheticdata import sensors
+
+try:
+    import numpy as np
+except ImportError:
+    print("numpy not found. attempting to install...")
+    omni.kit.pipapi.install("numpy")
+    import numpy as np
+try:
+    import cv2
+except ImportError:
+    print("opencv-python not found. attempting to install...")
+    omni.kit.pipapi.install("opencv-python")
+    import cv2
 
 import rospy
 import rosgraph
