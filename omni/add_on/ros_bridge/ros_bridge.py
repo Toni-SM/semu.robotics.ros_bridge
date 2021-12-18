@@ -1,5 +1,6 @@
 import json
 import time
+import asyncio
 import threading
 
 import omni
@@ -269,6 +270,9 @@ class RosAttribute(RosController):
         self._srv_getter = None
         self._srv_setter = None
 
+    async def _set_attribute(self, attribute, attribute_value):
+        attribute.Set(attribute_value)
+
     def _process_setter_request(self, request):
         response = _SetPrimAttribute.SetPrimAttributeResponse()
         response.success = False
@@ -284,39 +288,52 @@ class RosAttribute(RosController):
                     try:
                         # value
                         value = json.loads(request.value)
+                        attribute_value = None
+
                         # parse data
                         if attribute_type in ['Vec2d', 'Vec2f', 'Vec2h', 'Vec2i']:
-                            attribute.Set(type(attribute.Get())(value))
+                            attribute_value = type(attribute.Get())(value)
                         elif attribute_type in ['Vec3d', 'Vec3f', 'Vec3h', 'Vec3i']:
-                            attribute.Set(type(attribute.Get())(value))
+                            attribute_value = type(attribute.Get())(value)
                         elif attribute_type in ['Vec4d', 'Vec4f', 'Vec4h', 'Vec4i']:
-                            attribute.Set(type(attribute.Get())(value))
+                            attribute_value = type(attribute.Get())(value)
                         elif attribute_type in ['Quatd', 'Quatf', 'Quath']:
-                            attribute.Set(type(attribute.Get())(*value))
+                            attribute_value = type(attribute.Get())(*value)
                         elif attribute_type in ['Matrix4d', 'Matrix4f']:
-                            attribute.Set(type(attribute.Get())(value))
+                            attribute_value = type(attribute.Get())(value)
                         elif attribute_type.startswith('Vec') and attribute_type.endswith('Array'):
-                            attribute.Set(type(attribute.Get())(value))
+                            attribute_value = type(attribute.Get())(value)
                         elif attribute_type.startswith('Matrix') and attribute_type.endswith('Array'):
                             if attribute_type.endswith("dArray"):
-                                attribute.Set(type(attribute.Get())([Gf.Matrix2d(v) for v in value]))
+                                attribute_value = type(attribute.Get())([Gf.Matrix2d(v) for v in value])
                             elif attribute_type.endswith("fArray"):
-                                attribute.Set(type(attribute.Get())([Gf.Matrix2f(v) for v in value]))
+                                attribute_value = type(attribute.Get())([Gf.Matrix2f(v) for v in value])
                         elif attribute_type.startswith('Quat') and attribute_type.endswith('Array'):
                             if attribute_type.endswith("dArray"):
-                                attribute.Set(type(attribute.Get())([Gf.Quatd(*v) for v in value]))
+                                attribute_value = type(attribute.Get())([Gf.Quatd(*v) for v in value])
                             elif attribute_type.endswith("fArray"):
-                                attribute.Set(type(attribute.Get())([Gf.Quatf(*v) for v in value]))
+                                attribute_value = type(attribute.Get())([Gf.Quatf(*v) for v in value]) 
                             elif attribute_type.endswith("hArray"):
-                                attribute.Set(type(attribute.Get())([Gf.Quath(*v) for v in value]))
+                                attribute_value = type(attribute.Get())([Gf.Quath(*v) for v in value])
                         elif attribute_type.endswith('Array'):
-                            attribute.Set(type(attribute.Get())(value))
+                            attribute_value = type(attribute.Get())(value)
                         elif attribute_type in ['AssetPath']:
-                            attribute.Set(type(attribute.Get())(value))
+                            attribute_value = type(attribute.Get())(value)
                         elif attribute_type in ['NoneType']:
                             pass
                         else:
-                            attribute.Set(type(attribute.Get())(value))
+                            attribute_value = type(attribute.Get())(value)
+                        
+                        # set attribute
+                        if attribute_value is not None:
+                            try:
+                                loop = asyncio.get_event_loop()
+                            except:
+                                loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            future = asyncio.ensure_future(self._set_attribute(attribute, attribute_value))
+                            loop.run_until_complete(future)
+
                         response.success = True
                     except Exception as e:
                         print("[ERROR] srv {} request for {} ({}: {}): {}".format(self._srv_setter.resolved_name, request.path, request.attribute, value, e))
