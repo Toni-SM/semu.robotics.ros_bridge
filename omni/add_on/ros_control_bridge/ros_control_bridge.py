@@ -326,14 +326,12 @@ class RosControlFollowJointTrajectory(RosController):
         goal_handle.set_accepted()
 
     def _on_cancel(self, goal_handle):
-        print("[INFO] RosControlFollowJointTrajectory: cancel goal")
-        if self._action_goal is not None:
-            self._action_goal = None
-            self._feedback = None
-            self._result = None
-            goal_handle.set_accepted()
+        if self._action_goal is None:
+            goal_handle.set_rejected()
             return
-        goal_handle.set_rejected()
+        self._action_goal_handle = None
+        self._action_goal = None
+        goal_handle.set_canceled()
 
     def update_step(self, dt):
         pass
@@ -359,8 +357,8 @@ class RosControlFollowJointTrajectory(RosController):
             current_point = self._action_goal.trajectory.points[self._action_point_index]
             time_passed = rospy.get_time() - self._action_start_time
 
+            # set target using linear interpolation
             if time_passed <= current_point.time_from_start.to_sec():
-                # linear interpolation
                 ratio = (time_passed - previous_point.time_from_start.to_sec()) \
                       / (current_point.time_from_start.to_sec() - previous_point.time_from_start.to_sec())
                 self._dci.wake_up_articulation(self._articulation)
@@ -369,68 +367,12 @@ class RosControlFollowJointTrajectory(RosController):
                     target_position = previous_point.positions[i] \
                                     + side * ratio * abs(current_point.positions[i] - previous_point.positions[i])
                     self._set_joint_position(name, target_position)
+            # send feedback
             else:
                 self._action_point_index += 1
                 self._action_feedback_message.actual.positions = [self._get_joint_position(name) for name in self._action_goal.trajectory.joint_names]
                 self._action_feedback_message.actual.time_from_start = rospy.Duration.from_sec(time_passed)
                 self._action_goal_handle.publish_feedback(self._action_feedback_message)
-
-        
-    # def _goal_cb(self, goal_handle):
-    #     goal_handle.set_accepted("")
-    #     goal = goal_handle.get_goal()
-    #     # TODO: see other properties: goal_tolerance, path_tolerance, goal_time_tolerance
-
-    #     last_time_from_start = 0
-    #     joint_names = goal.trajectory.joint_names
-
-    #     # execute trajectories
-    #     for trajectory in goal.trajectory.points:
-    #         # compute dt
-    #         dt = trajectory.time_from_start.to_sec() - last_time_from_start
-    #         last_time_from_start = trajectory.time_from_start.to_sec()
-
-    #         # set target
-    #         # TODO: add lock
-    #         for i in range(len(joint_names)):
-    #             self._dof[joint_names[i]]["target"] = trajectory.positions[i]
-    #             self._dof[joint_names[i]]["dt"] = dt
-            
-    #         time.sleep(dt)
-    #         # t = time.time()
-    #         # while time.time() - t < dt:
-    #         #     time.sleep(0.01)    
-    #         #     error = 0
-    #         #     for k in self._dof:
-    #         #         if self._dof[k]["target"] is not None:
-    #         #             error += abs(self._dof[k]["target"] - self._dof[k]["current"])
-    #         #     print(error)
-    #         #     if error < 0.35:
-    #         #         break
-            
-    #         # TODO: add error
-    #         # build feedback
-    #         self._feedback.actual = trajectory
-    #         self._feedback.desired = goal.trajectory.points[-1]
-
-    #         # publish feedback
-    #         goal_handle.publish_feedback(self._feedback)
-
-    #     # release dof's target
-    #     for k in self._dof:
-    #         self._dof[k]["target"] = None
-
-    #     success = True
-    #     if success:
-    #         self._result.error_code = self._result.SUCCESSFUL
-    #         goal_handle.set_succeeded(self._result, "")
-    #     else:
-    #         self._result.error_code = self._result.SUCCESSFUL
-    #         goal_handle.set_aborted(self._result, "")
-
-    # def _cancel_cb(self, goal_id):
-    #     # TODO: cancel current goal
-    #     pass
 
 
 class RosControllerGripperCommand(RosController):
