@@ -146,17 +146,16 @@ class RosController():
 
 class RosControlFollowJointTrajectory(RosController):
     def __init__(self, usd_context, schema, dci):
-        super(RosControlFollowJointTrajectory, self).__init__(usd_context, schema)
+        super().__init__(usd_context, schema)
         
         self._dci = dci
 
         self._articulation = _dynamic_control.INVALID_HANDLE
         self._joints = {}
 
-        self._dt = 0.05
         self._action_server = None
        
-        # TODO: add it to the schema
+        # TODO: add to schema?
         self._action_tolerances = {}
         self._action_default_tolerance = 0.05
 
@@ -205,7 +204,7 @@ class RosControlFollowJointTrajectory(RosController):
         self.started = True
     
     def stop(self):
-        super(RosControlFollowJointTrajectory, self).stop()
+        super().stop()
         self._articulation = _dynamic_control.INVALID_HANDLE
         self._shutdown_action_server()
         self._action_goal_handle = None
@@ -344,7 +343,6 @@ class RosControlFollowJointTrajectory(RosController):
             self._init_articulation()
             return
         # update articulation
-        self._dt = dt
         if self._action_goal is not None:
             # end of trajectory
             if self._action_point_index >= len(self._action_goal.trajectory.points):
@@ -376,83 +374,206 @@ class RosControlFollowJointTrajectory(RosController):
 
 
 class RosControllerGripperCommand(RosController):
-    def __init__(self, dci, usd_context, schema):
-        super().__init__(dci, usd_context, schema)
+    def __init__(self, usd_context, schema, dci):
+        super().__init__(usd_context, schema)
         
-        # feedback/result
-        self._feedback = control_msgs.msg.GripperCommandFeedback()
-        self._result = control_msgs.msg.GripperCommandResult()
+        self._dci = dci
+
+        self._articulation = _dynamic_control.INVALID_HANDLE
+        self._joints = {}
+
+        self._action_server = None
+
+        self._action_goal = None
+        self._action_goal_handle = None
+        self._action_start_time = None
+        # TODO: add to schema?
+        self._action_timeout = 5.0
+        self._action_position_threshold = 0.001
+
+        # feedback / result
+        self._action_result_message = control_msgs.msg.GripperCommandResult()
+        self._action_feedback_message = control_msgs.msg.GripperCommandFeedback()
     
     def start(self):
-        self.started = True
         print("[INFO] RosControllerGripperCommand: starting", self._schema.__class__.__name__)
 
+        # get attributes and relationships
+        action_namespace = self._schema.GetActionNamespaceAttr().Get()
+        controller_name = self._schema.GetControllerNameAttr().Get()
+
         relationships = self._schema.GetArticulationPrimRel().GetTargets()
-        if len(relationships) > 1:
-            # check for articulation API
-            stage = self._usd_context.get_stage()
-            path = relationships[0].GetPrimPath().pathString
-            if not stage.GetPrimAtPath(path).HasAPI(PhysxSchema.PhysxArticulationAPI):
-                print("[WARNING] RosControllerGripperCommand: prim {} doesn't have PhysxArticulationAPI".format(path))
-                return
-            
-            # get articulation
-            self._ar = self._dci.get_articulation(path)
-            if self._ar == _dynamic_control.INVALID_HANDLE:
-                print("[WARNING] RosControllerGripperCommand: prim {}: invalid handle".format(path))
-                return
+        if not len(relationships):
+            print("[WARNING] RosControllerGripperCommand: empty relationships")
+            return
+        elif len(relationships) == 1:
+            print("[WARNING] RosControllerGripperCommand: relationship is not a group")
+            return
 
-            # get DOF
-            self._dof = {}
-            dof_paths = [relationship.GetPrimPath().pathString for relationship in relationships[1:]]
-            for i in range(self._dci.get_articulation_dof_count(self._ar)):
-                dof = self._dci.get_articulation_dof(self._ar, i)
-                if dof != _dynamic_control.DofType.DOF_NONE:
-                    if self._dci.get_dof_path(dof) in dof_paths:
-                        joint_name = self._dci.get_joint_name(self._dci.get_dof_joint(dof))
-                        self._dof[joint_name] = {"dof": dof, "target": None}
-            
-            # build action name
-            _action_name = self._schema.GetRosNodePrefixAttr().Get() \
-                         + self._schema.GetControllerNameAttr().Get() \
-                         + self._schema.GetActionNamespaceAttr().Get()
-
-            # start actionlib server
-            self._start_server(_action_name, control_msgs.msg.GripperCommandAction)
-    
-    def _goal_cb(self, goal_handle):
-        goal_handle.set_accepted("")
-        goal = goal_handle.get_goal()
-        # TODO: see other properties: command.max_effort
-
-        for k in self._dof:
-            self._dof[k]["target"] = goal.command.position
-
-        time.sleep(0.05)
+        # check for articulation API
+        stage = self._usd_context.get_stage()
+        path = relationships[0].GetPrimPath().pathString
+        if not stage.GetPrimAtPath(path).HasAPI(PhysxSchema.PhysxArticulationAPI):
+            print("[WARNING] RosControllerGripperCommand: prim {} doesn't have PhysxArticulationAPI".format(path))
+            return
         
-        # publish feedback
-        self._feedback.reached_goal = False
-        self._feedback.stalled = False
-        self._feedback.position = goal.command.position
-        self._feedback.effort = goal.command.max_effort
-        goal_handle.publish_feedback(self._feedback)
+        # start action server
+        self._shutdown_action_server()
+        self._action_server = actionlib.ActionServer(controller_name + action_namespace, 
+                                                     control_msgs.msg.GripperCommandAction,
+                                                     goal_cb=self._on_goal,
+                                                     cancel_cb=self._on_cancel,
+                                                     auto_start=False)
+        try:
+            self._action_server.start()
+        except ConnectionRefusedError:
+            print("[ERROR] RosControllerGripperCommand: action server {} not started".format(controller_name + action_namespace))
+            return
+        print("[INFO] RosControllerGripperCommand: register action:", controller_name + action_namespace)
+
+        self.started = True
+
+    def stop(self):
+        super().stop()
+        self._articulation = _dynamic_control.INVALID_HANDLE
+        self._shutdown_action_server()
+        self._action_goal_handle = None
+        self._action_goal = None
+
+    def _shutdown_action_server(self):
+        # /opt/ros/melodic/lib/python2.7/dist-packages/actionlib/action_server.py
+        print("[INFO] RosControllerGripperCommand: destroy action server:", self._schema.GetPrim().GetPath())
+        if self._action_server:
+            if self._action_server.started:
+                self._action_server.started = False
+
+                self._action_server.status_pub.unregister()
+                self._action_server.result_pub.unregister()
+                self._action_server.feedback_pub.unregister()
+
+                self._action_server.goal_sub.unregister()
+                self._action_server.cancel_sub.unregister()
+
+            del self._action_server
+            self._action_server = None
+
+    def _init_articulation(self):
+        # get articulation
+        relationships = self._schema.GetArticulationPrimRel().GetTargets()
+        path = relationships[0].GetPrimPath().pathString
+        self._articulation = self._dci.get_articulation(path)
+        if self._articulation == _dynamic_control.INVALID_HANDLE:
+            print("[WARNING] RosControllerGripperCommand: prim {} is not an articulation".format(path))
+            return
+        
+        dof_props = self._dci.get_articulation_dof_properties(self._articulation)
+        if dof_props is None:
+            return
+
+        upper_limits = dof_props["upper"]
+        lower_limits = dof_props["lower"]
+        has_limits = dof_props["hasLimits"]
+
+        # get joints
+        # TODO: move to another relationship in the schema
+        paths = [relationship.GetPrimPath().pathString for relationship in relationships[1:]]
+
+        for i in range(self._dci.get_articulation_dof_count(self._articulation)):
+            dof_ptr = self._dci.get_articulation_dof(self._articulation, i)
+            if dof_ptr != _dynamic_control.DofType.DOF_NONE:
+                # add only required joints
+                if self._dci.get_dof_path(dof_ptr) in paths:
+                    dof_name = self._dci.get_dof_name(dof_ptr)
+                    if dof_name not in self._joints:
+                        _joint = self._dci.find_articulation_joint(self._articulation, dof_name)
+                        self._joints[dof_name] = {"joint": _joint,
+                                                  "type": self._dci.get_joint_type(_joint),
+                                                  "dof": self._dci.find_articulation_dof(self._articulation, dof_name), 
+                                                  "lower": lower_limits[i], 
+                                                  "upper": upper_limits[i], 
+                                                  "has_limits": has_limits[i]}
+
+        if not self._joints:
+            print("[WARNING] RosControllerGripperCommand: no joints found")
+            self.started = False
     
-        time.sleep(0.05)
+    def _set_joint_position(self, name, target_position):
+        # clip target position
+        if self._joints[name]["has_limits"]:
+            target_position = min(max(target_position, self._joints[name]["lower"]), self._joints[name]["upper"])
+        # scale target position for prismatic joints
+        if self._joints[name]["type"] == _dynamic_control.JOINT_PRISMATIC:
+            target_position /= get_stage_units()
+        # set target position
+        self._dci.set_dof_position_target(self._joints[name]["dof"], target_position)
 
-        # # release dof's target
-        # for k in self._dof:
-        #     self._dof[k]["target"] = None
+    def _get_joint_position(self, name):
+        position = self._dci.get_dof_state(self._joints[name]["dof"], _dynamic_control.STATE_POS).pos
+        if self._joints[name]["type"] == _dynamic_control.JOINT_PRISMATIC:
+            return position * get_stage_units()
+        return position
 
-        success = True
-        if success:
-            self._result.reached_goal = True
-            self._result.stalled = False
-            goal_handle.set_succeeded(self._result, "")
-        else:
-            self._result.reached_goal = False
-            self._result.stalled = True
-            goal_handle.set_aborted(self._result, "")
+    def _on_goal(self, goal_handle):
+        goal = goal_handle.get_goal()
 
-    def _cancel_cb(self, goal_id):
-        # TODO: cancel current goal
+        # reject if infinity or NaN
+        if math.isinf(goal.command.position) or math.isnan(goal.command.max_effort):
+            print("[ERROR] RosControllerGripperCommand: Received a goal with infinites or NaNs")
+            goal_handle.set_rejected()
+            return
+
+        # reject if joints are already controlled
+        if self._action_goal is not None:
+            print("[ERROR] RosControllerGripperCommand: Cannot accept multiple goals")
+            goal_handle.set_rejected()
+            return
+
+        # store goal data
+        self._action_goal = goal
+        self._action_goal_handle = goal_handle
+        self._action_start_time = rospy.get_time()
+
+        goal_handle.set_accepted()
+
+    def _on_cancel(self, goal_handle):
+        if self._action_goal is None:
+            goal_handle.set_rejected()
+            return
+        self._action_goal_handle = None
+        self._action_goal = None
+        goal_handle.set_canceled()
+
+    def update_step(self, dt):
         pass
+
+    def physics_step(self, dt):
+        if not self.started:
+            return
+        # init articulation
+        if not self._joints:
+            self._init_articulation()
+            return
+        # update articulation
+        if self._action_goal is not None:
+            target_position = self._action_goal.command.position
+            # set target
+            self._dci.wake_up_articulation(self._articulation)
+            for name in self._joints:
+                self._set_joint_position(name, target_position)
+            # end (position reached)
+            position_reached = True
+            for name in self._joints:
+                position = self._get_joint_position(name)
+                if abs(position - target_position) > self._action_position_threshold:
+                    position_reached = False
+                    break
+            if position_reached:
+                self._action_goal = None
+                self._action_goal_handle.set_succeeded()
+            # end (timeout)
+            time_passed = rospy.get_time() - self._action_start_time
+            if time_passed >= self._action_timeout:
+                self._action_goal = None
+                self._action_goal_handle.set_aborted()
+            # TODO: send feedback
+            # self._action_goal_handle.publish_feedback(self._action_feedback_message)
