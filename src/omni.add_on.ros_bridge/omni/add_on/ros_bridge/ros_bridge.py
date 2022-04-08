@@ -79,14 +79,14 @@ class RosBridge:
         try:
             rosgraph.Master("/rostopic").getPid()
         except:
-            carb.log_warn("{}: ROS master is not running".format(self._node_name))
+            print("[Warning][omni.add_on.ros_bridge] {}: ROS master is not running".format(self._node_name))
             return False
         # start ROS node
         try:
             rospy.init_node(self._node_name)
-            carb.log_info("{} node started".format(self._node_name))
+            print("[Info][omni.add_on.ros_bridge] {} node started".format(self._node_name))
         except rospy.ROSException as e:
-            carb.log_error("{}: {}".format(self._node_name, e))
+            print("[Error][omni.add_on.ros_bridge] {}: {}".format(self._node_name, e))
             return False
         return True
 
@@ -137,11 +137,11 @@ class RosBridge:
         # reload components
         if event.type == int(omni.timeline.TimelineEventType.PLAY):
             self._reload_components()
-            carb.log_info("RosControlBridge: components reloaded")
+            print("[Info][omni.add_on.ros_bridge] RosControlBridge: components reloaded")
         # stop components
         elif event.type == int(omni.timeline.TimelineEventType.STOP) or event.type == int(omni.timeline.TimelineEventType.PAUSE):
             self._stop_components()
-            carb.log_info("RosControlBridge: components stopped")
+            print("[Info][omni.add_on.ros_bridge] RosControlBridge: components stopped")
 
     def _on_stage_event(self, event):
         pass
@@ -162,7 +162,7 @@ class RosController():
         raise NotImplementedError
 
     def stop(self):
-        carb.log_info("RosController: stopping {}".format(self._schema.__class__.__name__))
+        print("[Info][omni.add_on.ros_bridge] RosController: stopping {}".format(self._schema.__class__.__name__))
         self.started = False
 
     def update_step(self, dt):
@@ -191,8 +191,8 @@ class RosAttribute(RosController):
 
         self.__event_timeout = carb.settings.get_settings().get("/exts/omni.add_on.ros_bridge/eventTimeout")
         self.__set_attribute_using_asyncio = carb.settings.get_settings().get("/exts/omni.add_on.ros_bridge/setAttributeUsingAsyncio")
-        carb.log_info("RosAttribute: asyncio: {}".format(self.__set_attribute_using_asyncio))
-        carb.log_info("RosAttribute: event timeout: {}".format(self.__event_timeout))
+        print("[Info][omni.add_on.ros_bridge] RosAttribute: asyncio: {}".format(self.__set_attribute_using_asyncio))
+        print("[Info][omni.add_on.ros_bridge] RosAttribute: event timeout: {}".format(self.__event_timeout))
 
     async def _set_attribute(self, attribute, attribute_value):
         ret = attribute.Set(attribute_value)
@@ -271,7 +271,7 @@ class RosAttribute(RosController):
                                     response.message = "The timeout ({} s) for setting the attribute value has been reached".format(self.__event_timeout)
 
                     except Exception as e:
-                        carb.log_error("RosAttribute: srv {} request for {} ({}: {}): {}".format(self._srv_setter.resolved_name, request.path, request.attribute, value, e))
+                        print("[Error][omni.add_on.ros_bridge] RosAttribute: srv {} request for {} ({}: {}): {}".format(self._srv_setter.resolved_name, request.path, request.attribute, value, e))
                         response.success = False
                         response.message = str(e)
                 else:
@@ -323,8 +323,8 @@ class RosAttribute(RosController):
                         try:
                             response.value = json.dumps(list(attribute.Get()))
                         except Exception as e:
-                            carb.log_warn("RosAttribute: Unknow attribute type {}".format(type(attribute.Get())))
-                            carb.log_warn("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
+                            print("[Warning][omni.add_on.ros_bridge] RosAttribute: Unknow attribute type {}".format(type(attribute.Get())))
+                            print("[Warning][omni.add_on.ros_bridge]   |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
                             response.success = False
                             response.message = "Unknow type {}".format(type(attribute.Get()))
                     elif response.type in ['AssetPath']:
@@ -333,8 +333,8 @@ class RosAttribute(RosController):
                         try:
                             response.value = json.dumps(attribute.Get())
                         except Exception as e:
-                            carb.log_warn("RosAttribute: Unknow {}: {}".format(type(attribute.Get()), attribute.Get()))
-                            carb.log_warn("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
+                            print("[Warning][omni.add_on.ros_bridge] RosAttribute: Unknow {}: {}".format(type(attribute.Get()), attribute.Get()))
+                            print("[Warning][omni.add_on.ros_bridge]   |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
                             response.success = False
                             response.message = "Unknow type {}".format(type(attribute.Get()))
                 else:
@@ -386,41 +386,41 @@ class RosAttribute(RosController):
         return response
 
     def start(self):
-        carb.log_info("RosAttribute: starting {}".format(self._schema.__class__.__name__))
+        print("[Info][omni.add_on.ros_bridge] RosAttribute: starting {}".format(self._schema.__class__.__name__))
 
         service_name = self._schema.GetPrimsSrvTopicAttr().Get()
         self._srv_prims = rospy.Service(service_name, GetPrims.GetPrims, self._process_prims_request)
-        carb.log_info("RosAttribute: register srv: {}".format(self._srv_prims.resolved_name))
+        print("[Info][omni.add_on.ros_bridge] RosAttribute: register srv: {}".format(self._srv_prims.resolved_name))
 
         service_name = self._schema.GetGetAttrSrvTopicAttr().Get()
         self._srv_getter = rospy.Service(service_name, GetPrimAttribute.GetPrimAttribute, self._process_getter_request)
-        carb.log_info("RosAttribute: register srv: {}".format(self._srv_getter.resolved_name))
+        print("[Info][omni.add_on.ros_bridge] RosAttribute: register srv: {}".format(self._srv_getter.resolved_name))
 
         service_name = self._schema.GetAttributesSrvTopicAttr().Get()
         self._srv_attributes = rospy.Service(service_name, GetPrimAttributes.GetPrimAttributes, self._process_attributes_request)
-        carb.log_info("RosAttribute: register srv: {}".format(self._srv_attributes.resolved_name))
+        print("[Info][omni.add_on.ros_bridge] RosAttribute: register srv: {}".format(self._srv_attributes.resolved_name))
 
         service_name = self._schema.GetSetAttrSrvTopicAttr().Get()
         self._srv_setter = rospy.Service(service_name, SetPrimAttribute.SetPrimAttribute, self._process_setter_request)
-        carb.log_info("RosAttribute: register srv: {}".format(self._srv_setter.resolved_name))
+        print("[Info][omni.add_on.ros_bridge] RosAttribute: register srv: {}".format(self._srv_setter.resolved_name))
         
         self.started = True
 
     def stop(self):
         if self._srv_prims is not None:
-            carb.log_info("RosAttribute: unregister srv: {}".format(self._srv_prims.resolved_name))
+            print("[Info][omni.add_on.ros_bridge] RosAttribute: unregister srv: {}".format(self._srv_prims.resolved_name))
             self._srv_prims.shutdown()
             self._srv_prims = None
         if self._srv_getter is not None:
-            carb.log_info("RosAttribute: unregister srv: {}".format(self._srv_getter.resolved_name))
+            print("[Info][omni.add_on.ros_bridge] RosAttribute: unregister srv: {}".format(self._srv_getter.resolved_name))
             self._srv_getter.shutdown()
             self._srv_getter = None
         if self._srv_attributes is not None:
-            carb.log_info("RosAttribute: unregister srv: {}".format(self._srv_attributes.resolved_name))
+            print("[Info][omni.add_on.ros_bridge] RosAttribute: unregister srv: {}".format(self._srv_attributes.resolved_name))
             self._srv_attributes.shutdown()
             self._srv_attributes = None
         if self._srv_setter is not None:
-            carb.log_info("RosAttribute: unregister srv: {}".format(self._srv_setter.resolved_name))
+            print("[Info][omni.add_on.ros_bridge] RosAttribute: unregister srv: {}".format(self._srv_setter.resolved_name))
             self._srv_setter.shutdown()
             self._srv_setter = None
         super(RosAttribute, self).stop()
@@ -465,7 +465,7 @@ class RosControlFollowJointTrajectory(RosController):
         self._action_feedback_message = control_msgs.msg.FollowJointTrajectoryFeedback()
     
     def start(self):
-        carb.log_info("RosControlFollowJointTrajectory: starting {}".format(self._schema.__class__.__name__))
+        print("[Info][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: starting {}".format(self._schema.__class__.__name__))
 
         # get attributes and relationships
         action_namespace = self._schema.GetActionNamespaceAttr().Get()
@@ -473,14 +473,14 @@ class RosControlFollowJointTrajectory(RosController):
 
         relationships = self._schema.GetArticulationPrimRel().GetTargets()
         if not len(relationships):
-            carb.log_warn("RosControlFollowJointTrajectory: empty relationships")
+            print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: empty relationships")
             return
 
         # check for articulation API
         stage = self._usd_context.get_stage()
         path = relationships[0].GetPrimPath().pathString
         if not stage.GetPrimAtPath(path).HasAPI(PhysxSchema.PhysxArticulationAPI):
-            carb.log_warn("RosControlFollowJointTrajectory: prim {} doesn't have PhysxArticulationAPI".format(path))
+            print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: prim {} doesn't have PhysxArticulationAPI".format(path))
             return
         
         # start action server
@@ -493,9 +493,9 @@ class RosControlFollowJointTrajectory(RosController):
         try:
             self._action_server.start()
         except ConnectionRefusedError:
-            carb.log_error("RosControlFollowJointTrajectory: action server {} not started".format(controller_name + action_namespace))
+            print("[Error][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: action server {} not started".format(controller_name + action_namespace))
             return
-        carb.log_info("RosControlFollowJointTrajectory: register action {}".format(controller_name + action_namespace))
+        print("[Info][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: register action {}".format(controller_name + action_namespace))
 
         self.started = True
     
@@ -508,7 +508,7 @@ class RosControlFollowJointTrajectory(RosController):
 
     def _shutdown_action_server(self):
         # /opt/ros/melodic/lib/python2.7/dist-packages/actionlib/action_server.py
-        carb.log_info("RosControlFollowJointTrajectory: destroy action server: {}".format(self._schema.GetPrim().GetPath()))
+        print("[Info][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: destroy action server: {}".format(self._schema.GetPrim().GetPath()))
         if self._action_server:
             if self._action_server.started:
                 self._action_server.started = False
@@ -529,7 +529,7 @@ class RosControlFollowJointTrajectory(RosController):
         path = relationships[0].GetPrimPath().pathString
         self._articulation = self._dci.get_articulation(path)
         if self._articulation == _dynamic_control.INVALID_HANDLE:
-            carb.log_warn("RosControlFollowJointTrajectory: prim {} is not an articulation".format(path))
+            print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: prim {} is not an articulation".format(path))
             return
         
         dof_props = self._dci.get_articulation_dof_properties(self._articulation)
@@ -555,7 +555,7 @@ class RosControlFollowJointTrajectory(RosController):
                                               "has_limits": has_limits[i]}
 
         if not self._joints:
-            carb.log_warn("RosControlFollowJointTrajectory: no joints found in articulation {}".format(path))
+            print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: no joints found in articulation {}".format(path))
             self.started = False
 
     def _set_joint_position(self, name, target_position):
@@ -577,7 +577,7 @@ class RosControlFollowJointTrajectory(RosController):
         # reject if joints don't match
         for name in goal.trajectory.joint_names:
             if name not in self._joints:
-                carb.log_warn("RosControlFollowJointTrajectory: received a goal with incorrect joint names ({} not in {})".format(name, list(self._joints.keys())))
+                print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: received a goal with incorrect joint names ({} not in {})".format(name, list(self._joints.keys())))
                 self._action_result_message.error_code = self._action_result_message.INVALID_JOINTS
                 goal_handle.set_rejected(self._action_result_message, "")
                 return
@@ -586,14 +586,14 @@ class RosControlFollowJointTrajectory(RosController):
         for point in goal.trajectory.points:
             for position, velocity in zip(point.positions, point.velocities):
                 if math.isinf(position) or math.isnan(position) or math.isinf(velocity) or math.isnan(velocity):
-                    carb.log_warn("RosControlFollowJointTrajectory: received a goal with infinites or NaNs")
+                    print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: received a goal with infinites or NaNs")
                     self._action_result_message.error_code = self._action_result_message.INVALID_GOAL
                     goal_handle.set_rejected(self._action_result_message, "")
                     return
 
         # reject if joints are already controlled
         if self._action_goal is not None:
-            carb.log_warn("RosControlFollowJointTrajectory: cannot accept multiple goals")
+            print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: cannot accept multiple goals")
             self._action_result_message.error_code = self._action_result_message.INVALID_GOAL
             goal_handle.set_rejected(self._action_result_message, "")
             return
@@ -692,7 +692,7 @@ class RosControllerGripperCommand(RosController):
         self._action_feedback_message = control_msgs.msg.GripperCommandFeedback()
     
     def start(self):
-        carb.log_info("RosControllerGripperCommand: starting {}".format(self._schema.__class__.__name__))
+        print("[Info][omni.add_on.ros_bridge] RosControllerGripperCommand: starting {}".format(self._schema.__class__.__name__))
 
         # get attributes and relationships
         action_namespace = self._schema.GetActionNamespaceAttr().Get()
@@ -700,17 +700,17 @@ class RosControllerGripperCommand(RosController):
 
         relationships = self._schema.GetArticulationPrimRel().GetTargets()
         if not len(relationships):
-            carb.log_warn("RosControllerGripperCommand: empty relationships")
+            print("[Warning][omni.add_on.ros_bridge] RosControllerGripperCommand: empty relationships")
             return
         elif len(relationships) == 1:
-            carb.log_warn("RosControllerGripperCommand: relationship is not a group")
+            print("[Warning][omni.add_on.ros_bridge] RosControllerGripperCommand: relationship is not a group")
             return
 
         # check for articulation API
         stage = self._usd_context.get_stage()
         path = relationships[0].GetPrimPath().pathString
         if not stage.GetPrimAtPath(path).HasAPI(PhysxSchema.PhysxArticulationAPI):
-            carb.log_warn("RosControllerGripperCommand: prim {} doesn't have PhysxArticulationAPI".format(path))
+            print("[Warning][omni.add_on.ros_bridge] RosControllerGripperCommand: prim {} doesn't have PhysxArticulationAPI".format(path))
             return
         
         # start action server
@@ -723,9 +723,9 @@ class RosControllerGripperCommand(RosController):
         try:
             self._action_server.start()
         except ConnectionRefusedError:
-            carb.log_error("RosControllerGripperCommand: action server {} not started".format(controller_name + action_namespace))
+            print("[Error][omni.add_on.ros_bridge] RosControllerGripperCommand: action server {} not started".format(controller_name + action_namespace))
             return
-        carb.log_info("RosControllerGripperCommand: register action {}".format(controller_name + action_namespace))
+        print("[Info][omni.add_on.ros_bridge] RosControllerGripperCommand: register action {}".format(controller_name + action_namespace))
 
         self.started = True
 
@@ -738,7 +738,7 @@ class RosControllerGripperCommand(RosController):
 
     def _shutdown_action_server(self):
         # /opt/ros/melodic/lib/python2.7/dist-packages/actionlib/action_server.py
-        carb.log_info("RosControllerGripperCommand: destroy action server {}".format(self._schema.GetPrim().GetPath()))
+        print("[Info][omni.add_on.ros_bridge] RosControllerGripperCommand: destroy action server {}".format(self._schema.GetPrim().GetPath()))
         if self._action_server:
             if self._action_server.started:
                 self._action_server.started = False
@@ -759,7 +759,7 @@ class RosControllerGripperCommand(RosController):
         path = relationships[0].GetPrimPath().pathString
         self._articulation = self._dci.get_articulation(path)
         if self._articulation == _dynamic_control.INVALID_HANDLE:
-            carb.log_warn("RosControllerGripperCommand: prim {} is not an articulation".format(path))
+            print("[Warning][omni.add_on.ros_bridge] RosControllerGripperCommand: prim {} is not an articulation".format(path))
             return
         
         dof_props = self._dci.get_articulation_dof_properties(self._articulation)
@@ -790,7 +790,7 @@ class RosControllerGripperCommand(RosController):
                                                   "has_limits": has_limits[i]}
 
         if not self._joints:
-            carb.log_warn("RosControllerGripperCommand: no joints found in articulation {}".format(path))
+            print("[Warning][omni.add_on.ros_bridge] RosControllerGripperCommand: no joints found in articulation {}".format(path))
             self.started = False
     
     def _set_joint_position(self, name, target_position):
@@ -814,13 +814,13 @@ class RosControllerGripperCommand(RosController):
 
         # reject if infinity or NaN
         if math.isinf(goal.command.position) or math.isnan(goal.command.max_effort):
-            carb.log_warn("RosControllerGripperCommand: received a goal with infinites or NaNs")
+            print("[Warning][omni.add_on.ros_bridge] RosControllerGripperCommand: received a goal with infinites or NaNs")
             goal_handle.set_rejected()
             return
 
         # reject if joints are already controlled
         if self._action_goal is not None:
-            carb.log_warn("RosControllerGripperCommand: cannot accept multiple goals")
+            print("[Warning][omni.add_on.ros_bridge] RosControllerGripperCommand: cannot accept multiple goals")
             goal_handle.set_rejected()
             return
 
