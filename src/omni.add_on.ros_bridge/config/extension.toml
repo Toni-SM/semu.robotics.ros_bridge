@@ -3,12 +3,12 @@ reloadable = true
 order = 0
 
 [package]
-version = "0.0.2"
+version = "0.1.0"
 category = "Simulation"
 title = "ROS Bridge (add-on)"
 description = "ROS interfaces for add-ons"
 authors = ["Toni-SM"]
-repository = ""
+repository = "https://github.com/Toni-SM/omni.add_on.ros_bridge"
 keywords = ["add-on", "ROS", "control"]
 changelog = "docs/CHANGELOG.md"
 readme = "docs/README.md"
@@ -30,4 +30,3 @@ name = "omni.add_on.ros_bridge.tests"
 
 [settings]
 exts."omni.add_on.ros_bridge".nodeName = "OmniAddOnRosBridge"
-

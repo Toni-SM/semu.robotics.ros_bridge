@@ -4,4 +4,3 @@ This extension enables the ROS action server interfaces for controlling robots (
 
 Visit https://github.com/Toni-SM/omni.add_on.ros_bridge to read more about its use
 
-
