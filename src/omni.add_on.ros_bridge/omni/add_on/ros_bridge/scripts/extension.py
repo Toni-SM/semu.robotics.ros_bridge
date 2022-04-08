@@ -8,7 +8,7 @@ except:
 
 
 class Extension(omni.ext.IExt):
-    def on_startup(self):
+    def on_startup(self, ext_id):
         self._rosbridge = None
         ext_manager = omni.kit.app.get_app().get_extension_manager()
         if ext_manager.is_extension_enabled("omni.isaac.ros2_bridge"):
@@ -16,7 +16,7 @@ class Extension(omni.ext.IExt):
             ext_manager.set_extension_enabled("omni.add_on.ros_bridge", False)
             return
 
-        self._rosbridge = _ros_bridge.acquire_ros_bridge_interface()
+        self._rosbridge = _ros_bridge.acquire_ros_bridge_interface(ext_id)
         
     def on_shutdown(self):
         if self._rosbridge is not None:
