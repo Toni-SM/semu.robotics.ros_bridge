@@ -19,11 +19,29 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 import omni.add_on.RosBridgeSchema as ROSSchema
 import omni.add_on.RosControlBridgeSchema as ROSControlSchema
 
-from .srv import _GetPrims, _GetPrimAttribute, _GetPrimAttributes, _SetPrimAttribute
+
+# message types
+GetPrims = None
+GetPrimAttributes = None
+GetPrimAttribute = None
+SetPrimAttribute = None
 
 
 def acquire_ros_bridge_interface(ext_id: str = ""):
-    return RosBridge()
+    global GetPrims, GetPrimAttributes, GetPrimAttribute, SetPrimAttribute
+
+    from add_on_msgs.srv import _GetPrims as get_prims_srv
+    from add_on_msgs.srv import _GetPrimAttributes as get_prim_attributes_srv
+    from add_on_msgs.srv import _GetPrimAttribute as get_prim_attribute_srv
+    from add_on_msgs.srv import _SetPrimAttribute as set_prim_attribute_srv
+    
+    GetPrims = get_prims_srv
+    GetPrimAttributes = get_prim_attributes_srv
+    GetPrimAttribute = get_prim_attribute_srv
+    SetPrimAttribute = set_prim_attribute_srv
+
+    bridge = RosBridge()
+    return bridge
 
 def release_ros_bridge_interface(bridge):
     bridge.shutdown()
@@ -180,7 +198,7 @@ class RosAttribute(RosController):
         ret = attribute.Set(attribute_value)
 
     def _process_setter_request(self, request):
-        response = _SetPrimAttribute.SetPrimAttributeResponse()
+        response = SetPrimAttribute.SetPrimAttributeResponse()
         response.success = False
         if self._schema.GetEnabledAttr().Get():
             stage = self._usd_context.get_stage()
@@ -265,7 +283,7 @@ class RosAttribute(RosController):
         return response
         
     def _process_getter_request(self, request):
-        response = _GetPrimAttribute.GetPrimAttributeResponse()
+        response = GetPrimAttribute.GetPrimAttributeResponse()
         response.success = False
         if self._schema.GetEnabledAttr().Get():
             stage = self._usd_context.get_stage()
@@ -328,7 +346,7 @@ class RosAttribute(RosController):
         return response
 
     def _process_attributes_request(self, request):
-        response = _GetPrimAttributes.GetPrimAttributesResponse()
+        response = GetPrimAttributes.GetPrimAttributesResponse()
         response.success = False
         if self._schema.GetEnabledAttr().Get():
             stage = self._usd_context.get_stage()
@@ -350,7 +368,7 @@ class RosAttribute(RosController):
         return response
     
     def _process_prims_request(self, request):
-        response = _GetPrims.GetPrimsResponse()
+        response = GetPrims.GetPrimsResponse()
         response.success = False
         if self._schema.GetEnabledAttr().Get():
             stage = self._usd_context.get_stage()
@@ -371,19 +389,19 @@ class RosAttribute(RosController):
         carb.log_info("RosAttribute: starting {}".format(self._schema.__class__.__name__))
 
         service_name = self._schema.GetPrimsSrvTopicAttr().Get()
-        self._srv_prims = rospy.Service(service_name, _GetPrims.GetPrims, self._process_prims_request)
+        self._srv_prims = rospy.Service(service_name, GetPrims.GetPrims, self._process_prims_request)
         carb.log_info("RosAttribute: register srv: {}".format(self._srv_prims.resolved_name))
 
         service_name = self._schema.GetGetAttrSrvTopicAttr().Get()
-        self._srv_getter = rospy.Service(service_name, _GetPrimAttribute.GetPrimAttribute, self._process_getter_request)
+        self._srv_getter = rospy.Service(service_name, GetPrimAttribute.GetPrimAttribute, self._process_getter_request)
         carb.log_info("RosAttribute: register srv: {}".format(self._srv_getter.resolved_name))
 
         service_name = self._schema.GetAttributesSrvTopicAttr().Get()
-        self._srv_attributes = rospy.Service(service_name, _GetPrimAttributes.GetPrimAttributes, self._process_attributes_request)
+        self._srv_attributes = rospy.Service(service_name, GetPrimAttributes.GetPrimAttributes, self._process_attributes_request)
         carb.log_info("RosAttribute: register srv: {}".format(self._srv_attributes.resolved_name))
 
         service_name = self._schema.GetSetAttrSrvTopicAttr().Get()
-        self._srv_setter = rospy.Service(service_name, _SetPrimAttribute.SetPrimAttribute, self._process_setter_request)
+        self._srv_setter = rospy.Service(service_name, SetPrimAttribute.SetPrimAttribute, self._process_setter_request)
         carb.log_info("RosAttribute: register srv: {}".format(self._srv_setter.resolved_name))
         
         self.started = True
