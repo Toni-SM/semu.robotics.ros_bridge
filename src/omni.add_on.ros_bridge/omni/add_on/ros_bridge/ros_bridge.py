@@ -569,7 +569,10 @@ class RosControlFollowJointTrajectory(RosController):
         self._dci.set_dof_position_target(self._joints[name]["dof"], target_position)
 
     def _get_joint_position(self, name):
-        return self._dci.get_dof_state(self._joints[name]["dof"], _dynamic_control.STATE_POS).pos
+        position = self._dci.get_dof_state(self._joints[name]["dof"], _dynamic_control.STATE_POS).pos
+        if self._joints[name]["type"] == _dynamic_control.JOINT_PRISMATIC:
+            return position * get_stage_units()
+        return position
 
     def _on_goal(self, goal_handle):
         goal = goal_handle.get_goal()
