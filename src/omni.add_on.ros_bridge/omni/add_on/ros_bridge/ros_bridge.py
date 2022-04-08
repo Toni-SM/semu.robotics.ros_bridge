@@ -165,8 +165,19 @@ class RosAttribute(RosController):
         self._srv_getter = None
         self._srv_setter = None
 
+        self._value = None
+        self._attribute = None
+
+        self._event = threading.Event()
+        self._event.set()
+
+        self.__event_timeout = carb.settings.get_settings().get("/exts/omni.add_on.ros_bridge/eventTimeout")
+        self.__set_attribute_using_asyncio = carb.settings.get_settings().get("/exts/omni.add_on.ros_bridge/setAttributeUsingAsyncio")
+        carb.log_info("RosAttribute: asyncio: {}".format(self.__set_attribute_using_asyncio))
+        carb.log_info("RosAttribute: event timeout: {}".format(self.__event_timeout))
+
     async def _set_attribute(self, attribute, attribute_value):
-        attribute.Set(attribute_value)
+        ret = attribute.Set(attribute_value)
 
     def _process_setter_request(self, request):
         response = _SetPrimAttribute.SetPrimAttributeResponse()
@@ -221,17 +232,28 @@ class RosAttribute(RosController):
                         
                         # set attribute
                         if attribute_value is not None:
-                            try:
-                                loop = asyncio.get_event_loop()
-                            except:
-                                loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            future = asyncio.ensure_future(self._set_attribute(attribute, attribute_value))
-                            loop.run_until_complete(future)
+                            # set attribute usign asyncio
+                            if self.__set_attribute_using_asyncio:
+                                try:
+                                    loop = asyncio.get_event_loop()
+                                except:
+                                    loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop)
+                                future = asyncio.ensure_future(self._set_attribute(attribute, attribute_value))
+                                loop.run_until_complete(future)
+                                response.success = True
+                            # set attribute in the physics event
+                            else:
+                                self._attribute = attribute
+                                self._value = attribute_value
 
-                        response.success = True
+                                self._event.clear()
+                                response.success = self._event.wait(self.__event_timeout)
+                                if not response.success:
+                                    response.message = "The timeout ({} s) for setting the attribute value has been reached".format(self.__event_timeout)
+
                     except Exception as e:
-                        print("[ERROR] srv {} request for {} ({}: {}): {}".format(self._srv_setter.resolved_name, request.path, request.attribute, value, e))
+                        carb.log_error("RosAttribute: srv {} request for {} ({}: {}): {}".format(self._srv_setter.resolved_name, request.path, request.attribute, value, e))
                         response.success = False
                         response.message = str(e)
                 else:
@@ -283,8 +305,8 @@ class RosAttribute(RosController):
                         try:
                             response.value = json.dumps(list(attribute.Get()))
                         except Exception as e:
-                            print("[UNKNOW]", type(attribute.Get()))
-                            print("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
+                            carb.log_warn("RosAttribute: Unknow attribute type {}".format(type(attribute.Get())))
+                            carb.log_warn("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
                             response.success = False
                             response.message = "Unknow type {}".format(type(attribute.Get()))
                     elif response.type in ['AssetPath']:
@@ -293,8 +315,8 @@ class RosAttribute(RosController):
                         try:
                             response.value = json.dumps(attribute.Get())
                         except Exception as e:
-                            print("[UNKNOW]", type(attribute.Get()), attribute.Get())
-                            print("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
+                            carb.log_warn("RosAttribute: Unknow {}: {}".format(type(attribute.Get()), attribute.Get()))
+                            carb.log_warn("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
                             response.success = False
                             response.message = "Unknow type {}".format(type(attribute.Get()))
                 else:
@@ -346,46 +368,58 @@ class RosAttribute(RosController):
         return response
 
     def start(self):
-        self.started = True
-        print("[INFO] RosAttribute: starting", self._schema.__class__.__name__)
+        carb.log_info("RosAttribute: starting {}".format(self._schema.__class__.__name__))
 
         service_name = self._schema.GetPrimsSrvTopicAttr().Get()
         self._srv_prims = rospy.Service(service_name, _GetPrims.GetPrims, self._process_prims_request)
-        print("[INFO] RosAttribute: register srv:", self._srv_prims.resolved_name)
+        carb.log_info("RosAttribute: register srv: {}".format(self._srv_prims.resolved_name))
 
         service_name = self._schema.GetGetAttrSrvTopicAttr().Get()
         self._srv_getter = rospy.Service(service_name, _GetPrimAttribute.GetPrimAttribute, self._process_getter_request)
-        print("[INFO] RosAttribute: register srv:", self._srv_getter.resolved_name)
+        carb.log_info("RosAttribute: register srv: {}".format(self._srv_getter.resolved_name))
 
         service_name = self._schema.GetAttributesSrvTopicAttr().Get()
         self._srv_attributes = rospy.Service(service_name, _GetPrimAttributes.GetPrimAttributes, self._process_attributes_request)
-        print("[INFO] RosAttribute: register srv:", self._srv_attributes.resolved_name)
+        carb.log_info("RosAttribute: register srv: {}".format(self._srv_attributes.resolved_name))
 
         service_name = self._schema.GetSetAttrSrvTopicAttr().Get()
         self._srv_setter = rospy.Service(service_name, _SetPrimAttribute.SetPrimAttribute, self._process_setter_request)
-        print("[INFO] RosAttribute: register srv:", self._srv_setter.resolved_name)
+        carb.log_info("RosAttribute: register srv: {}".format(self._srv_setter.resolved_name))
         
+        self.started = True
+
     def stop(self):
         if self._srv_prims is not None:
-            print("[INFO] RosAttribute: unregister srv:", self._srv_prims.resolved_name)
+            carb.log_info("RosAttribute: unregister srv: {}".format(self._srv_prims.resolved_name))
             self._srv_prims.shutdown()
             self._srv_prims = None
         if self._srv_getter is not None:
-            print("[INFO] RosAttribute: unregister srv:", self._srv_getter.resolved_name)
+            carb.log_info("RosAttribute: unregister srv: {}".format(self._srv_getter.resolved_name))
             self._srv_getter.shutdown()
             self._srv_getter = None
         if self._srv_attributes is not None:
-            print("[INFO] RosAttribute: unregister srv:", self._srv_attributes.resolved_name)
+            carb.log_info("RosAttribute: unregister srv: {}".format(self._srv_attributes.resolved_name))
             self._srv_attributes.shutdown()
             self._srv_attributes = None
         if self._srv_setter is not None:
-            print("[INFO] RosAttribute: unregister srv:", self._srv_setter.resolved_name)
+            carb.log_info("RosAttribute: unregister srv: {}".format(self._srv_setter.resolved_name))
             self._srv_setter.shutdown()
             self._srv_setter = None
         super(RosAttribute, self).stop()
 
-    def step(self, dt):
+    def update_step(self, dt):
         pass
+
+    def physics_step(self, step):
+        if not self.started:
+            return
+        if self.__set_attribute_using_asyncio:
+            return
+        if self._dci.is_simulating():
+            if not self._event.is_set():
+                if self._attribute is not None:
+                    ret = self._attribute.Set(self._value)
+                self._event.set()
         
 
 class RosControlFollowJointTrajectory(RosController):

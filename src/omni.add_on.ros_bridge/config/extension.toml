@@ -30,3 +30,5 @@ name = "omni.add_on.ros_bridge.tests"
 
 [settings]
 exts."omni.add_on.ros_bridge".nodeName = "OmniAddOnRosBridge"
+exts."omni.add_on.ros_bridge".eventTimeout = 5.0
+exts."omni.add_on.ros_bridge".setAttributeUsingAsyncio = false
