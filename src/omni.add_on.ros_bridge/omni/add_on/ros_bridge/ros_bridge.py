@@ -13,7 +13,7 @@ from omni.isaac.core.utils.stage import get_stage_units
 import rospy
 import rosgraph
 import actionlib
-import control_msgs.msg     # apt-get install ros-<distro>-control-msgs
+import control_msgs.msg
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 import omni.add_on.RosBridgeSchema as ROSSchema
@@ -168,7 +168,7 @@ class RosController():
     def update_step(self, dt):
         raise NotImplementedError
 
-    def physics_step(self, step):
+    def physics_step(self, dt):
         raise NotImplementedError
     
 
@@ -324,7 +324,7 @@ class RosAttribute(RosController):
                             response.value = json.dumps(list(attribute.Get()))
                         except Exception as e:
                             print("[Warning][omni.add_on.ros_bridge] RosAttribute: Unknow attribute type {}".format(type(attribute.Get())))
-                            print("[Warning][omni.add_on.ros_bridge]   |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
+                            print("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
                             response.success = False
                             response.message = "Unknow type {}".format(type(attribute.Get()))
                     elif response.type in ['AssetPath']:
@@ -334,7 +334,7 @@ class RosAttribute(RosController):
                             response.value = json.dumps(attribute.Get())
                         except Exception as e:
                             print("[Warning][omni.add_on.ros_bridge] RosAttribute: Unknow {}: {}".format(type(attribute.Get()), attribute.Get()))
-                            print("[Warning][omni.add_on.ros_bridge]   |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
+                            print("  |-- Please, report a new issue (https://github.com/Toni-SM/omni.add_on.ros_bridge/issues)")
                             response.success = False
                             response.message = "Unknow type {}".format(type(attribute.Get()))
                 else:
@@ -428,7 +428,7 @@ class RosAttribute(RosController):
     def update_step(self, dt):
         pass
 
-    def physics_step(self, step):
+    def physics_step(self, dt):
         if not self.started:
             return
         if self.__set_attribute_using_asyncio:
@@ -450,10 +450,6 @@ class RosControlFollowJointTrajectory(RosController):
         self._joints = {}
 
         self._action_server = None
-       
-        # TODO: add to schema?
-        self._action_tolerances = {}
-        self._action_default_tolerance = 0.05
 
         self._action_goal = None
         self._action_goal_handle = None
@@ -507,7 +503,7 @@ class RosControlFollowJointTrajectory(RosController):
         self._action_goal = None
 
     def _shutdown_action_server(self):
-        # /opt/ros/melodic/lib/python2.7/dist-packages/actionlib/action_server.py
+        # omni.isaac.ros_bridge/noetic/lib/python3/dist-packages/actionlib/action_server.py
         print("[Info][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: destroy action server: {}".format(self._schema.GetPrim().GetPath()))
         if self._action_server:
             if self._action_server.started:
@@ -555,7 +551,7 @@ class RosControlFollowJointTrajectory(RosController):
                                               "has_limits": has_limits[i]}
 
         if not self._joints:
-            print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: no joints found in articulation {}".format(path))
+            print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: no joints found in {}".format(path))
             self.started = False
 
     def _set_joint_position(self, name, target_position):
@@ -580,35 +576,19 @@ class RosControlFollowJointTrajectory(RosController):
         # reject if joints don't match
         for name in goal.trajectory.joint_names:
             if name not in self._joints:
-                print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: received a goal with incorrect joint names ({} not in {})".format(name, list(self._joints.keys())))
+                print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: joints don't match ({} not in {})".format(name, list(self._joints.keys())))
                 self._action_result_message.error_code = self._action_result_message.INVALID_JOINTS
                 goal_handle.set_rejected(self._action_result_message, "")
                 return
 
-        # reject if infinity or NaN
-        for point in goal.trajectory.points:
-            for position, velocity in zip(point.positions, point.velocities):
-                if math.isinf(position) or math.isnan(position) or math.isinf(velocity) or math.isnan(velocity):
-                    print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: received a goal with infinites or NaNs")
-                    self._action_result_message.error_code = self._action_result_message.INVALID_GOAL
-                    goal_handle.set_rejected(self._action_result_message, "")
-                    return
-
-        # reject if joints are already controlled
+        # reject if there is an active goal
         if self._action_goal is not None:
-            print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: cannot accept multiple goals")
+            print("[Warning][omni.add_on.ros_bridge] RosControlFollowJointTrajectory: multiple goals not supported")
             self._action_result_message.error_code = self._action_result_message.INVALID_GOAL
             goal_handle.set_rejected(self._action_result_message, "")
             return
 
-        # set tolerances
-        for tolerance in goal.goal_tolerance:
-            self._action_tolerances[tolerance.name] = tolerance.position
-        for name in goal.trajectory.joint_names:
-            if name not in self._action_tolerances:
-                self._action_tolerances[name] = self._action_default_tolerance
-
-        # if the user forget the initial position
+        # check initial position
         if goal.trajectory.points[0].time_from_start.to_sec():
             initial_point = JointTrajectoryPoint(positions=[self._get_joint_position(name) for name in goal.trajectory.joint_names],
                                                  time_from_start=rospy.Duration())
@@ -627,8 +607,9 @@ class RosControlFollowJointTrajectory(RosController):
         if self._action_goal is None:
             goal_handle.set_rejected()
             return
-        self._action_goal_handle = None
         self._action_goal = None
+        self._action_goal_handle = None
+        self._action_start_time = None
         goal_handle.set_canceled()
 
     def update_step(self, dt):
@@ -642,12 +623,14 @@ class RosControlFollowJointTrajectory(RosController):
             self._init_articulation()
             return
         # update articulation
-        if self._action_goal is not None:
+        if self._action_goal is not None and self._action_goal_handle is not None:
             # end of trajectory
             if self._action_point_index >= len(self._action_goal.trajectory.points):
                 self._action_goal = None
                 self._action_result_message.error_code = self._action_result_message.SUCCESSFUL
-                self._action_goal_handle.set_succeeded(self._action_result_message)
+                if self._action_goal_handle is not None:
+                    self._action_goal_handle.set_succeeded(self._action_result_message)
+                    self._action_goal_handle = None
                 return
             
             previous_point = self._action_goal.trajectory.points[self._action_point_index - 1]
@@ -669,7 +652,8 @@ class RosControlFollowJointTrajectory(RosController):
                 self._action_point_index += 1
                 self._action_feedback_message.actual.positions = [self._get_joint_position(name) for name in self._action_goal.trajectory.joint_names]
                 self._action_feedback_message.actual.time_from_start = rospy.Duration.from_sec(time_passed)
-                self._action_goal_handle.publish_feedback(self._action_feedback_message)
+                if self._action_goal_handle is not None:
+                    self._action_goal_handle.publish_feedback(self._action_feedback_message)
 
 
 class RosControllerGripperCommand(RosController):
@@ -687,8 +671,9 @@ class RosControllerGripperCommand(RosController):
         self._action_goal_handle = None
         self._action_start_time = None
         # TODO: add to schema?
-        self._action_timeout = 5.0
+        self._action_timeout = 10.0
         self._action_position_threshold = 0.001
+        self._action_previous_position_sum = float("inf")
 
         # feedback / result
         self._action_result_message = control_msgs.msg.GripperCommandResult()
@@ -740,7 +725,7 @@ class RosControllerGripperCommand(RosController):
         self._action_goal = None
 
     def _shutdown_action_server(self):
-        # /opt/ros/melodic/lib/python2.7/dist-packages/actionlib/action_server.py
+        # omni.isaac.ros_bridge/noetic/lib/python3/dist-packages/actionlib/action_server.py
         print("[Info][omni.add_on.ros_bridge] RosControllerGripperCommand: destroy action server {}".format(self._schema.GetPrim().GetPath()))
         if self._action_server:
             if self._action_server.started:
@@ -815,15 +800,9 @@ class RosControllerGripperCommand(RosController):
     def _on_goal(self, goal_handle):
         goal = goal_handle.get_goal()
 
-        # reject if infinity or NaN
-        if math.isinf(goal.command.position) or math.isnan(goal.command.max_effort):
-            print("[Warning][omni.add_on.ros_bridge] RosControllerGripperCommand: received a goal with infinites or NaNs")
-            goal_handle.set_rejected()
-            return
-
-        # reject if joints are already controlled
+        # reject if there is an active goal
         if self._action_goal is not None:
-            print("[Warning][omni.add_on.ros_bridge] RosControllerGripperCommand: cannot accept multiple goals")
+            print("[Warning][omni.add_on.ros_bridge] RosControllerGripperCommand: multiple goals not supported")
             goal_handle.set_rejected()
             return
 
@@ -831,6 +810,7 @@ class RosControllerGripperCommand(RosController):
         self._action_goal = goal
         self._action_goal_handle = goal_handle
         self._action_start_time = rospy.get_time()
+        self._action_previous_position_sum = float("inf")
 
         goal_handle.set_accepted()
 
@@ -838,8 +818,10 @@ class RosControllerGripperCommand(RosController):
         if self._action_goal is None:
             goal_handle.set_rejected()
             return
-        self._action_goal_handle = None
         self._action_goal = None
+        self._action_goal_handle = None
+        self._action_start_time = None
+        self._action_previous_position_sum = float("inf")
         goal_handle.set_canceled()
 
     def update_step(self, dt):
@@ -853,26 +835,48 @@ class RosControllerGripperCommand(RosController):
             self._init_articulation()
             return
         # update articulation
-        if self._action_goal is not None:
+        if self._action_goal is not None and self._action_goal_handle is not None:
             target_position = self._action_goal.command.position
             # set target
             self._dci.wake_up_articulation(self._articulation)
             for name in self._joints:
                 self._set_joint_position(name, target_position)
             # end (position reached)
+            position = 0
+            current_position_sum = 0
             position_reached = True
             for name in self._joints:
                 position = self._get_joint_position(name)
+                current_position_sum += position
                 if abs(position - target_position) > self._action_position_threshold:
                     position_reached = False
                     break
             if position_reached:
                 self._action_goal = None
-                self._action_goal_handle.set_succeeded()
+                self._action_result_message.position = position
+                self._action_result_message.stalled = False
+                self._action_result_message.reached_goal = True
+                if self._action_goal_handle is not None:
+                    self._action_goal_handle.set_succeeded(self._action_result_message)
+                    self._action_goal_handle = None
+                return
+            # end (stalled)
+            if abs(current_position_sum - self._action_previous_position_sum) < 1e-6:
+                self._action_goal = None
+                self._action_result_message.position = position
+                self._action_result_message.stalled = True
+                self._action_result_message.reached_goal = False
+                if self._action_goal_handle is not None:
+                    self._action_goal_handle.set_succeeded(self._action_result_message)
+                    self._action_goal_handle = None
+                return
+            self._action_previous_position_sum = current_position_sum
             # end (timeout)
             time_passed = rospy.get_time() - self._action_start_time
             if time_passed >= self._action_timeout:
                 self._action_goal = None
-                self._action_goal_handle.set_aborted()
+                if self._action_goal_handle is not None:
+                    self._action_goal_handle.set_aborted()
+                    self._action_goal_handle = None
             # TODO: send feedback
             # self._action_goal_handle.publish_feedback(self._action_feedback_message)
