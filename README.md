@@ -21,6 +21,9 @@
     - [GripperCommand](#ros-gripper-command)
 
 <br>
+
+![showcase](src/omni.add_on.ros_bridge/data/preview.png)
+
 <hr>
 
 <a name="prerequisites"></a>
@@ -152,4 +155,3 @@ The following components are supported:
     ```
 
     > **Note:** The GripperCommand action definition doesn't specify which joints will be controlled. The value manage by this action will affect all the specified joints equally
-    
