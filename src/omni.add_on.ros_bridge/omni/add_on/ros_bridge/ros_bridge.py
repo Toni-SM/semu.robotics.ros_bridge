@@ -310,12 +310,17 @@ class RosAttribute(RosController):
                     # attribute
                     attribute = prim.GetAttribute(request.attribute)
                     attribute_type = type(attribute.Get()).__name__
+                    # value
                     try:
-                        # value
                         value = json.loads(request.value)
                         attribute_value = None
-
-                        # parse data
+                    except json.JSONDecodeError:
+                        print("[Error][omni.add_on.ros_bridge] RosAttribute: invalid value: {}".format(request.value))
+                        response.success = False
+                        response.message = "Invalid value '{}'".format(request.value)
+                        return response
+                    # parse data
+                    try:
                         if attribute_type in ['Vec2d', 'Vec2f', 'Vec2h', 'Vec2i']:
                             attribute_value = type(attribute.Get())(value)
                         elif attribute_type in ['Vec3d', 'Vec3f', 'Vec3h', 'Vec3i']:
