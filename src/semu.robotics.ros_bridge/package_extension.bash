@@ -1,7 +1,7 @@
 #!/bin/bash
 
-extension_dir=../../exts/omni.add_on.ros_bridge
-extension_tree=omni/add_on/ros_bridge
+extension_dir=../../exts/semu.robotics.ros_bridge
+extension_tree=semu/robotics/ros_bridge
 
 # delete old files
 rm -r $extension_dir

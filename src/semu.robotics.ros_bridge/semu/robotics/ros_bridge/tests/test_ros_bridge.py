@@ -4,7 +4,7 @@
 import omni.kit.test
 
 # Import extension python module we are testing with absolute import path, as if we are external user (other extension)
-import omni.add_on.ros_bridge
+import semu.robotics.ros_bridge
 
 # Having a test class dervived from omni.kit.test.AsyncTestCase declared on the root of module will make it auto-discoverable by omni.kit.test
 class TestROSBridge(omni.kit.test.AsyncTestCaseFailOnLogError):
