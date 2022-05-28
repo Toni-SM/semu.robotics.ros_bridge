@@ -1,0 +1,41 @@
+[core]
+reloadable = true
+order = 0
+
+[package]
+version = "0.1.1"
+category = "Simulation"
+feature = false
+app = false
+title = "ROS Bridge (semu namespace)"
+description = "ROS interfaces (semu namespace)"
+authors = ["Toni-SM"]
+repository = "https://github.com/Toni-SM/semu.robotics.ros_bridge"
+keywords = ["ROS", "control"]
+changelog = "docs/CHANGELOG.md"
+readme = "docs/README.md"
+preview_image = "data/preview.png"
+icon = "data/icon.png"
+
+[package.target]
+config = ["release"]
+platform = ["linux-*"]
+python = ["*"]
+
+[dependencies]
+"omni.kit.uiapp" = {}
+"omni.isaac.dynamic_control" = {}
+"omni.isaac.ros_bridge" = {}
+"semu.usd.schemas" = {}
+"semu.robotics.ros_bridge_ui" = {}
+
+[[python.module]]
+name = "semu.robotics.ros_bridge"
+
+[[python.module]]
+name = "semu.robotics.ros_bridge.tests"
+
+[settings]
+exts."semu.robotics.ros_bridge".nodeName = "SemuRosBridge"
+exts."semu.robotics.ros_bridge".eventTimeout = 5.0
+exts."semu.robotics.ros_bridge".setAttributeUsingAsyncio = false
