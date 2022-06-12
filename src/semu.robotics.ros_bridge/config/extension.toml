@@ -3,7 +3,7 @@ reloadable = true
 order = 0
 
 [package]
-version = "0.1.1"
+version = "1.0.0"
 category = "Simulation"
 feature = false
 app = false
@@ -24,16 +24,19 @@ python = ["*"]
 
 [dependencies]
 "omni.kit.uiapp" = {}
+"omni.kit.test" = {}
+"omni.graph" = {}
 "omni.isaac.dynamic_control" = {}
-"omni.isaac.ros_bridge" = {}
-"semu.usd.schemas" = {}
-"semu.robotics.ros_bridge_ui" = {}
 
 [[python.module]]
 name = "semu.robotics.ros_bridge"
 
 [[python.module]]
 name = "semu.robotics.ros_bridge.tests"
+
+[fswatcher.patterns]
+include = ["*.ogn", "*.py"]
+exclude = ["Ogn*Database.py"]
 
 [settings]
 exts."semu.robotics.ros_bridge".nodeName = "SemuRosBridge"

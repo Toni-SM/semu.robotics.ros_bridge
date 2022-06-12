@@ -2,6 +2,7 @@ import os
 import sys
 import carb
 import omni.ext
+import omni.graph.core as og
 try:
     from .. import _ros_bridge
 except:
@@ -23,6 +24,8 @@ class Extension(omni.ext.IExt):
         sys.path.append(os.path.join(self._extension_path, "semu", "robotics", "ros_bridge", "packages"))
 
         self._rosbridge = _ros_bridge.acquire_ros_bridge_interface(ext_id)
+
+        og.register_ogn_nodes(__file__, "semu.robotics.ros_bridge")
         
     def on_shutdown(self):
         if self._extension_path is not None:
