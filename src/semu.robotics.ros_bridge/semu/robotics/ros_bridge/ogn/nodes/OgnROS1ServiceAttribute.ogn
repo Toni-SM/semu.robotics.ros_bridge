@@ -1,0 +1,41 @@
+{
+    "ROS1ServiceAttribute": {
+        "version": 1,
+        "description": "This node provides the services to list, read and write prim's attributes",
+        "language": "Python",
+        "metadata": {
+            "uiName": "ROS1 Attribute Service"
+        },
+        "inputs": {
+            "execIn": {
+                "type": "execution",
+                "description": "The input execution port"
+            },
+            "nodeNamespace": {
+                "type": "string",
+                "description": "Namespace of ROS1 Node, prepends any published/subscribed topic, service or action by the node namespace",
+                "default": ""
+            },
+            "primsServiceName": {
+                "type": "string",
+                "description": "Name of the service to list all prims in the current stage",
+                "default": "get_prims"
+            },
+            "getAttributesServiceName": {
+                "type": "string",
+                "description": "Name of the service to list all specific prim's attributes",
+                "default": "get_attributes"
+            },
+            "getAttributeServiceName": {
+                "type": "string",
+                "description": "Name of the service to read a specific prim's attribute",
+                "default": "get_attribute"
+            },
+            "setAttributeServiceName": {
+                "type": "string",
+                "description": "Name of the service to write a specific prim's attribute",
+                "default": "set_attribute"
+            }
+        }
+    }
+}
