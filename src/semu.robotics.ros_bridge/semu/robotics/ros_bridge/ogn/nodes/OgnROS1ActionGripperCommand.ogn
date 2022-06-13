@@ -1,0 +1,39 @@
+{
+    "ROS1ActionGripperCommand": {
+        "version": 1,
+        "description": "This node provides the GripperCommand action server to control a robotic gripper",
+        "language": "Python",
+        "metadata": {
+            "uiName": "ROS1 GripperCommand Action"
+        },
+        "inputs": {
+            "execIn": {
+                "type": "execution",
+                "description": "The input execution port"
+            },
+            "targetPrim":{
+                "type": "bundle",
+                "description": "USD reference to the robot prim"
+            },
+            "targetGripperJoints":{
+                "type": "bundle",
+                "description": "USD reference to the gripper joints"
+            },
+            "nodeNamespace": {
+                "type": "string",
+                "description": "Namespace of ROS1 Node, prepends any published/subscribed topic, service or action by the node namespace",
+                "default": ""
+            },
+            "controllerName": {
+                "type": "string",
+                "description": "Name of the controller",
+                "default": "gripper_controller"
+            },
+            "actionNamespace": {
+                "type": "string",
+                "description": "Action namespace for the controller",
+                "default": "gripper_command"
+            }
+        }
+    }
+}
