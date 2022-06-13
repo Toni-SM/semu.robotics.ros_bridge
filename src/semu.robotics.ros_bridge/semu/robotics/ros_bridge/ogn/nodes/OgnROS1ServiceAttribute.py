@@ -14,7 +14,7 @@ import rospy
 
 class InternalState:
     def __init__(self):
-        """Internal state for the RosAttribute node
+        """Internal state for the ROS1 Attribute node
         """
         self.initialized = False
 
@@ -37,8 +37,8 @@ class InternalState:
         self.__event_timeout = carb.settings.get_settings().get("/exts/semu.robotics.ros_bridge/eventTimeout")
         self.__set_attribute_using_asyncio = \
             carb.settings.get_settings().get("/exts/semu.robotics.ros_bridge/setAttributeUsingAsyncio")
-        print("[Info][semu.robotics.ros_bridge] RosAttribute: asyncio: {}".format(self.__set_attribute_using_asyncio))
-        print("[Info][semu.robotics.ros_bridge] RosAttribute: event timeout: {}".format(self.__event_timeout))
+        print("[Info][semu.robotics.ros_bridge] ROS1 Attribute: asyncio: {}".format(self.__set_attribute_using_asyncio))
+        print("[Info][semu.robotics.ros_bridge] ROS1 Attribute: event timeout: {}".format(self.__event_timeout))
 
     async def _set_attribute(self, attribute: 'pxr.Usd.Attribute', attribute_value: Any) -> None:
         """Set the attribute value using asyncio
@@ -74,7 +74,7 @@ class InternalState:
                     value = json.loads(request.value)
                     attribute_value = None
                 except json.JSONDecodeError:
-                    print("[Error][semu.robotics.ros_bridge] RosAttribute: invalid value: {}".format(request.value))
+                    print("[Error][semu.robotics.ros_bridge] ROS1 Attribute: invalid value: {}".format(request.value))
                     response.success = False
                     response.message = "Invalid value '{}'".format(request.value)
                     return response
@@ -137,7 +137,7 @@ class InternalState:
                                     .format(self.__event_timeout)
 
                 except Exception as e:
-                    print("[Error][semu.robotics.ros_bridge] RosAttribute: srv {} request for {} ({}: {}): {}" \
+                    print("[Error][semu.robotics.ros_bridge] ROS1 Attribute: srv {} request for {} ({}: {}): {}" \
                         .format(self.srv_setter.resolved_name, request.path, request.attribute, value, e))
                     response.success = False
                     response.message = str(e)
@@ -197,7 +197,7 @@ class InternalState:
                     try:
                         response.value = json.dumps(list(attribute.Get()))
                     except Exception as e:
-                        print("[Warning][semu.robotics.ros_bridge] RosAttribute: Unknow attribute type {}" \
+                        print("[Warning][semu.robotics.ros_bridge] ROS1 Attribute: Unknow attribute type {}" \
                             .format(type(attribute.Get())))
                         print("  |-- Please, report a new issue (https://github.com/Toni-SM/semu.robotics.ros_bridge/issues)")
                         response.success = False
@@ -208,7 +208,7 @@ class InternalState:
                     try:
                         response.value = json.dumps(attribute.Get())
                     except Exception as e:
-                        print("[Warning][semu.robotics.ros_bridge] RosAttribute: Unknow {}: {}" \
+                        print("[Warning][semu.robotics.ros_bridge] ROS1 Attribute: Unknow {}: {}" \
                             .format(type(attribute.Get()), attribute.Get()))
                         print("  |-- Please, report a new issue (https://github.com/Toni-SM/semu.robotics.ros_bridge/issues)")
                         response.success = False
@@ -328,28 +328,28 @@ class OgnROS1ServiceAttribute:
                 db.internal_state.srv_prims = rospy.Service(service_name, 
                                                             db.internal_state.GetPrims.GetPrims, 
                                                             db.internal_state.process_prims_request)
-                print("[Info][semu.robotics.ros_bridge] RosAttribute: register srv: {}".format(db.internal_state.srv_prims.resolved_name))
+                print("[Info][semu.robotics.ros_bridge] ROS1 Attribute: register srv: {}".format(db.internal_state.srv_prims.resolved_name))
 
                 service_name = get_service_name(db.inputs.nodeNamespace, db.inputs.getAttributesServiceName)
                 db.internal_state.srv_attributes = rospy.Service(service_name, 
                                                                  db.internal_state.GetPrimAttributes.GetPrimAttributes, 
                                                                  db.internal_state.process_attributes_request)
-                print("[Info][semu.robotics.ros_bridge] RosAttribute: register srv: {}".format(db.internal_state.srv_attributes.resolved_name))
+                print("[Info][semu.robotics.ros_bridge] ROS1 Attribute: register srv: {}".format(db.internal_state.srv_attributes.resolved_name))
 
                 service_name = get_service_name(db.inputs.nodeNamespace, db.inputs.getAttributeServiceName)
                 db.internal_state.srv_getter = rospy.Service(service_name, 
                                                              db.internal_state.GetPrimAttribute.GetPrimAttribute, 
                                                              db.internal_state.process_getter_request)
-                print("[Info][semu.robotics.ros_bridge] RosAttribute: register srv: {}".format(db.internal_state.srv_getter.resolved_name))
+                print("[Info][semu.robotics.ros_bridge] ROS1 Attribute: register srv: {}".format(db.internal_state.srv_getter.resolved_name))
 
                 service_name = get_service_name(db.inputs.nodeNamespace, db.inputs.setAttributeServiceName)
                 db.internal_state.srv_setter = rospy.Service(service_name, 
                                                              db.internal_state.SetPrimAttribute.SetPrimAttribute, 
                                                              db.internal_state.process_setter_request)
-                print("[Warning][semu.robotics.ros_bridge] RosAttribute: register srv: {}".format(db.internal_state.srv_setter.resolved_name))
+                print("[Warning][semu.robotics.ros_bridge] ROS1 Attribute: register srv: {}".format(db.internal_state.srv_setter.resolved_name))
                 
             except Exception as error:
-                print("[Error][semu.robotics.ros_bridge] RosAttribute: error: {}".format(error))
+                print("[Error][semu.robotics.ros_bridge] ROS1 Attribute: error: {}".format(error))
                 db.log_error(str(error))
                 db.internal_state.initialized = False
                 return False
