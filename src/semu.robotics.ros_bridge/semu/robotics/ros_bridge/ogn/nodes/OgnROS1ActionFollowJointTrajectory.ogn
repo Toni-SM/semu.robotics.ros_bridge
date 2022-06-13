@@ -1,0 +1,35 @@
+{
+    "ROS1ActionFollowJointTrajectory": {
+        "version": 1,
+        "description": "This node provides the FollowJointTrajectory action server to control a robotic manipulator",
+        "language": "Python",
+        "metadata": {
+            "uiName": "ROS1 FollowJointTrajectory Action"
+        },
+        "inputs": {
+            "execIn": {
+                "type": "execution",
+                "description": "The input execution port"
+            },
+            "targetPrim":{
+                "type": "bundle",
+                "description": "USD reference to the robot prim"
+            },
+            "nodeNamespace": {
+                "type": "string",
+                "description": "Namespace of ROS1 Node, prepends any published/subscribed topic, service or action by the node namespace",
+                "default": ""
+            },
+            "controllerName": {
+                "type": "string",
+                "description": "Name of the controller",
+                "default": "robot_controller"
+            },
+            "actionNamespace": {
+                "type": "string",
+                "description": "Action namespace for the controller",
+                "default": "follow_joint_trajectory"
+            }
+        }
+    }
+}
