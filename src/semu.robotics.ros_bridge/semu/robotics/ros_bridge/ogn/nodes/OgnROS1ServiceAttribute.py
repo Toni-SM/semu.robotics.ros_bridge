@@ -20,6 +20,7 @@ class InternalState:
 
         self.dci = None
         self.usd_context = None
+        self.timeline_event = None
 
         self.GetPrims = None
         self.GetPrimAttributes = None
@@ -39,6 +40,40 @@ class InternalState:
             carb.settings.get_settings().get("/exts/semu.robotics.ros_bridge/setAttributeUsingAsyncio")
         print("[Info][semu.robotics.ros_bridge] ROS1 Attribute: asyncio: {}".format(self.__set_attribute_using_asyncio))
         print("[Info][semu.robotics.ros_bridge] ROS1 Attribute: event timeout: {}".format(self.__event_timeout))
+
+    def on_timeline_event(self, event: 'carb.events._events.IEvent') -> None:
+        """Handle the timeline event
+
+        :param event: Event
+        :type event: carb.events._events.IEvent
+        """
+        if event.type == int(omni.timeline.TimelineEventType.PLAY):
+            pass
+        elif event.type == int(omni.timeline.TimelineEventType.PAUSE):
+            pass
+        elif event.type == int(omni.timeline.TimelineEventType.STOP):
+            self.initialized = False
+            self.shutdown_services()
+
+    def shutdown_services(self) -> None:
+        """Shutdown the services
+        """
+        if self.srv_prims is not None:
+            print("[Info][semu.robotics.ros_bridge] RosAttribute: unregister srv: {}".format(self.srv_prims.resolved_name))
+            self.srv_prims.shutdown()
+            self.srv_prims = None
+        if self.srv_getter is not None:
+            print("[Info][semu.robotics.ros_bridge] RosAttribute: unregister srv: {}".format(self.srv_getter.resolved_name))
+            self.srv_getter.shutdown()
+            self.srv_getter = None
+        if self.srv_attributes is not None:
+            print("[Info][semu.robotics.ros_bridge] RosAttribute: unregister srv: {}".format(self.srv_attributes.resolved_name))
+            self.srv_attributes.shutdown()
+            self.srv_attributes = None
+        if self.srv_setter is not None:
+            print("[Info][semu.robotics.ros_bridge] RosAttribute: unregister srv: {}".format(self.srv_setter.resolved_name))
+            self.srv_setter.shutdown()
+            self.srv_setter = None
 
     async def _set_attribute(self, attribute: 'pxr.Usd.Attribute', attribute_value: Any) -> None:
         """Set the attribute value using asyncio
@@ -302,10 +337,19 @@ class OgnROS1ServiceAttribute:
         if db.internal_state.initialized:
             db.internal_state.step(0)
         else:
-            db.internal_state.initialized = True
             try:
                 db.internal_state.usd_context = omni.usd.get_context()
                 db.internal_state.dci = _dynamic_control.acquire_dynamic_control_interface()
+
+                if db.internal_state.timeline_event is None:
+                    timeline = omni.timeline.get_timeline_interface()
+                    db.internal_state.timeline_event = timeline.get_timeline_event_stream() \
+                        .create_subscription_to_pop(db.internal_state.on_timeline_event)
+
+                def get_service_name(namespace, name):
+                    service_namespace = namespace if namespace.startswith("/") else "/" + namespace
+                    service_name = name if name.startswith("/") else "/" + name
+                    return service_namespace if namespace else "" + service_name
 
                 # load service definitions
                 from add_on_msgs.srv import _GetPrims
@@ -319,10 +363,7 @@ class OgnROS1ServiceAttribute:
                 db.internal_state.SetPrimAttribute = _SetPrimAttribute
 
                 # create services
-                def get_service_name(namespace, name):
-                    service_namespace = namespace if namespace.startswith("/") else "/" + namespace
-                    service_name = name if name.startswith("/") else "/" + name
-                    return service_namespace if namespace else "" + service_name
+                db.internal_state.shutdown_services()
 
                 service_name = get_service_name(db.inputs.nodeNamespace, db.inputs.primsServiceName)
                 db.internal_state.srv_prims = rospy.Service(service_name, 
@@ -346,12 +387,14 @@ class OgnROS1ServiceAttribute:
                 db.internal_state.srv_setter = rospy.Service(service_name, 
                                                              db.internal_state.SetPrimAttribute.SetPrimAttribute, 
                                                              db.internal_state.process_setter_request)
-                print("[Warning][semu.robotics.ros_bridge] ROS1 Attribute: register srv: {}".format(db.internal_state.srv_setter.resolved_name))
+                print("[Info][semu.robotics.ros_bridge] ROS1 Attribute: register srv: {}".format(db.internal_state.srv_setter.resolved_name))
                 
             except Exception as error:
                 print("[Error][semu.robotics.ros_bridge] ROS1 Attribute: error: {}".format(error))
                 db.log_error(str(error))
                 db.internal_state.initialized = False
                 return False
+
+            db.internal_state.initialized = True
 
         return True

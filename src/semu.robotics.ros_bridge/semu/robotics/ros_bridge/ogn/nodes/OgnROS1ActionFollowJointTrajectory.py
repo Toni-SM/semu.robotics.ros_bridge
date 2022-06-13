@@ -17,6 +17,7 @@ class InternalState:
 
         self.dci = None
         self.usd_context = None
+        self.timeline_event = None
 
         self.action_server = None
         self.articulation_path = ""
@@ -32,6 +33,47 @@ class InternalState:
         # feedback / result
         self._action_result_message = control_msgs.msg.FollowJointTrajectoryResult()
         self._action_feedback_message = control_msgs.msg.FollowJointTrajectoryFeedback()
+
+    def on_timeline_event(self, event: 'carb.events._events.IEvent') -> None:
+        """Handle the timeline event
+
+        :param event: Event
+        :type event: carb.events._events.IEvent
+        """
+        if event.type == int(omni.timeline.TimelineEventType.PLAY):
+            pass
+        elif event.type == int(omni.timeline.TimelineEventType.PAUSE):
+            pass
+        elif event.type == int(omni.timeline.TimelineEventType.STOP):
+            self.initialized = False
+            self.shutdown_action_server()
+            
+            self._articulation = _dynamic_control.INVALID_HANDLE
+            self._joints = {}
+
+            self._action_goal = None
+            self._action_goal_handle = None
+            self._action_start_time = None
+            self._action_point_index = 1
+
+    def shutdown_action_server(self) -> None:
+        """Shutdown the action server
+        """
+        # noetic/lib/python3/dist-packages/actionlib/action_server.py
+        print("[Info][semu.robotics.ros_bridge] ROS1 FollowJointTrajectory: destroying action server")
+        if self.action_server:
+            if self.action_server.started:
+                self.action_server.started = False
+
+                self.action_server.status_pub.unregister()
+                self.action_server.result_pub.unregister()
+                self.action_server.feedback_pub.unregister()
+
+                self.action_server.goal_sub.unregister()
+                self.action_server.cancel_sub.unregister()
+
+            del self.action_server
+            self.action_server = None
 
     def _init_articulation(self) -> None:
         """Initialize the articulation and register joints
@@ -99,25 +141,6 @@ class InternalState:
         if self._joints[name]["type"] == _dynamic_control.JOINT_PRISMATIC:
             return position * get_stage_units()
         return position
-
-    def shutdown_action_server(self) -> None:
-        """Shutdown the action server
-        """
-        # noetic/lib/python3/dist-packages/actionlib/action_server.py
-        print("[Info][semu.robotics.ros_bridge] ROS1 FollowJointTrajectory: destroying action server")
-        if self.action_server:
-            if self.action_server.started:
-                self.action_server.started = False
-
-                self.action_server.status_pub.unregister()
-                self.action_server.result_pub.unregister()
-                self.action_server.feedback_pub.unregister()
-
-                self.action_server.goal_sub.unregister()
-                self.action_server.cancel_sub.unregister()
-
-            del self.action_server
-            self.action_server = None
 
     def on_goal(self, goal_handle: 'actionlib.ServerGoalHandle') -> None:
         """Callback function for handling new goal requests
@@ -239,6 +262,11 @@ class OgnROS1ActionFollowJointTrajectory:
                 db.internal_state.usd_context = omni.usd.get_context()
                 db.internal_state.dci = _dynamic_control.acquire_dynamic_control_interface()
 
+                if db.internal_state.timeline_event is None:
+                    timeline = omni.timeline.get_timeline_interface()
+                    db.internal_state.timeline_event = timeline.get_timeline_event_stream() \
+                        .create_subscription_to_pop(db.internal_state.on_timeline_event)
+
                 def get_action_name(namespace, controller_name, action_namespace):
                     controller_name = controller_name if controller_name.startswith("/") else "/" + controller_name
                     action_namespace = action_namespace if action_namespace.startswith("/") else "/" + action_namespace
@@ -258,15 +286,17 @@ class OgnROS1ActionFollowJointTrajectory:
 
                 db.internal_state.articulation_path = path
                 
-                # start action server
-                action_name = get_action_name(db.inputs.nodeNamespace, db.inputs.controllerName, db.inputs.actionNamespace)
+                # create action server
                 db.internal_state.shutdown_action_server()
+                
+                action_name = get_action_name(db.inputs.nodeNamespace, db.inputs.controllerName, db.inputs.actionNamespace)
                 db.internal_state.action_server = actionlib.ActionServer(action_name, 
                                                             control_msgs.msg.FollowJointTrajectoryAction,
                                                             goal_cb=db.internal_state.on_goal,
                                                             cancel_cb=db.internal_state.on_cancel,
                                                             auto_start=False)
                 db.internal_state.action_server.start()
+                print("[Info][semu.robotics.ros_bridge] ROS1 FollowJointTrajectory: register action {}".format(action_name))
 
             except ConnectionRefusedError as error:
                 print("[Error][semu.robotics.ros_bridge] ROS1 FollowJointTrajectory: action server {} not started".format(action_name))
@@ -279,7 +309,6 @@ class OgnROS1ActionFollowJointTrajectory:
                 db.internal_state.initialized = False
                 return False
             
-            print("[Info][semu.robotics.ros_bridge] ROS1 FollowJointTrajectory: register action {}".format(action_name))
             db.internal_state.initialized = True
 
         return True
