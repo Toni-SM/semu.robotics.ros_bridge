@@ -3,6 +3,9 @@
         "version": 1,
         "description": "This node provides the services to list, read and write prim's attributes",
         "language": "Python",
+        "icon": "semu/robotics/ros_bridge/ogn/nodes/icons/icon.svg",
+        "categoryDefinitions": "config/CategoryDefinition.json",
+        "categories": "semuRos:service",
         "metadata": {
             "uiName": "ROS1 Attribute Service"
         },

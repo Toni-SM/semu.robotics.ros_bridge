@@ -3,6 +3,9 @@
         "version": 1,
         "description": "This node provides the GripperCommand action server to control a robotic gripper",
         "language": "Python",
+        "icon": "semu/robotics/ros_bridge/ogn/nodes/icons/icon.svg",
+        "categoryDefinitions": "config/CategoryDefinition.json",
+        "categories": "semuRos:action",
         "metadata": {
             "uiName": "ROS1 GripperCommand Action"
         },
