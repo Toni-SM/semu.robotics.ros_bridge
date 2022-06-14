@@ -8,6 +8,11 @@ import actionlib
 import control_msgs.msg
 from trajectory_msgs.msg import JointTrajectoryPoint
 
+try:
+    from ... import _ros_bridge
+except:
+    from ... import ros_bridge as _ros_bridge
+
 
 class InternalState:
     def __init__(self):
@@ -255,6 +260,8 @@ class OgnROS1ActionFollowJointTrajectory:
 
     @staticmethod
     def compute(db) -> bool:
+        if not _ros_bridge.is_ros_node_running():
+            return False
         if db.internal_state.initialized:
             db.internal_state.step(0)
         else:
