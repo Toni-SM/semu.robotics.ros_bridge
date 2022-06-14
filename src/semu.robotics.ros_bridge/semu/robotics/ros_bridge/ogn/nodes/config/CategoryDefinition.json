@@ -1,0 +1,10 @@
+{
+    "categoryDefinitions": {
+        "$description": "These categories are applied to nodes in the ROS1 Bridge (semu namespace)",
+        "semuRos": "Nodes implementing functionality for ROS1 Interoperability",
+        "semuRos:publisher": "Nodes that publish a ROS1 message",
+        "semuRos:subscriber": "Nodes that subscribe to a ROS1 message",
+        "semuRos:service": "Nodes that provide rosservice in ROS1",
+        "semuRos:action": "Nodes that provide actionlib in ROS1"
+    }
+}
