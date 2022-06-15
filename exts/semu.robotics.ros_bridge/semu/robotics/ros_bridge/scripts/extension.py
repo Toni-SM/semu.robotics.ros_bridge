@@ -6,7 +6,6 @@ import omni.graph.core as og
 try:
     from .. import _ros_bridge
 except:
-    print(">>>> [DEVELOPMENT] import ros_bridge")
     from .. import ros_bridge as _ros_bridge
 
 
