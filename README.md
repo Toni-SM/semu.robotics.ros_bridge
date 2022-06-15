@@ -1,6 +1,6 @@
 ## ROS Bridge (external extension) for NVIDIA Omniverse Isaac Sim
 
-> This extension enables the ROS2 action server interfaces for controlling robots (particularly those used by MoveIt to talk to robot controllers: [FollowJointTrajectory](http://docs.ros.org/en/api/control_msgs/html/action/FollowJointTrajectory.html) and [GripperCommand](http://docs.ros.org/en/api/control_msgs/html/action/GripperCommand.html)) and enables services for agile prototyping of robotic applications in [ROS](https://www.ros.org/)
+> This extension enables the ROS action server interfaces for controlling robots (particularly those used by MoveIt to talk to robot controllers: [FollowJointTrajectory](http://docs.ros.org/en/api/control_msgs/html/action/FollowJointTrajectory.html) and [GripperCommand](http://docs.ros.org/en/api/control_msgs/html/action/GripperCommand.html)) and enables services for agile prototyping of robotic applications in [ROS](https://www.ros.org/)
 
 <br>
 
@@ -8,7 +8,7 @@
 
 **Supported OS:** Linux
 
-**Changelog:** [CHANGELOG.md](src/semu.robotics.ros_bridge/docs/CHANGELOG.md)
+**Changelog:** [CHANGELOG.md](exts/semu.robotics.ros_bridge/docs/CHANGELOG.md)
 
 **Table of Contents:**
 
@@ -22,17 +22,14 @@
 
 <br>
 
-![showcase](src/semu.robotics.ros_bridge/data/preview.png)
+![showcase](exts/semu.robotics.ros_bridge/data/preview.png)
 
 <hr>
 
 <a name="prerequisites"></a>
 ### Prerequisites
 
-All prerequisites described in [ROS & ROS2 Bridge](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ext_omni_isaac_ros_bridge.html) must be fulfilled before running this extension. In addition, this extension requires the following extensions to be present in Isaac Sim:
-
-- [semu.usd.schemas](https://github.com/Toni-SM/semu.usd.schemas): USD schemas
-- [semu.robotics.ros_bridge_ui](https://github.com/Toni-SM/semu.robotics.ros_bridge_ui): Menu and commands
+All prerequisites described in [ROS & ROS2 Bridge](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ext_omni_isaac_ros_bridge.html) must be fulfilled before running this extension
 
 <hr>
 
@@ -45,12 +42,6 @@ All prerequisites described in [ROS & ROS2 Bridge](https://docs.omniverse.nvidia
     
         ```
         git+https://github.com/Toni-SM/semu.robotics.ros_bridge.git?branch=main&dir=exts
-        ```
-
-        To install the source code version use the following url
-
-        ```
-        git+https://github.com/Toni-SM/semu.robotics.ros_bridge.git?branch=main&dir=src
         ```
 
     * Compressed (.zip) file for import
@@ -75,10 +66,16 @@ Disabling the extension shutdowns the ROS node and its respective active communi
 <a name="components"></a>
 ### Supported components
 
+![showcase](exts/semu.robotics.ros_bridge/data/preview1.png)
+
+<br>
+
 The following components are supported:
 
 <a name="ros-attribute"></a>
-* **Attribute (ROS service):** enables the ervices for getting and setting the attributes of a prim according to the service definitions described bellow 
+* **Attribute (ROS service):** enables the services for getting and setting the attributes of a prim according to the service definitions described bellow 
+
+    To add an Attribute service action search for ActionGraph nodes and select ***ROS1 Attribute Service*** 
 
     The ROS package [add_on_msgs](https://github.com/Toni-SM/semu.robotics.ros_bridge/releases) contains the definition of the messages (download and add it to a ROS workspace). A sample code of a [python client application](https://github.com/Toni-SM/semu.robotics.ros_bridge/releases) is also provided
 
@@ -133,9 +130,9 @@ The following components are supported:
 <a name="ros-follow-joint-trajectory"></a>
 * **FollowJointTrajectory (ROS action):** enables the actions for a robot to follow a given trajectory
 
-    To add a FollowJointTrajectory action go to the ***Create > Isaac > ROS Control*** menu and select ***Follow Joint Trajectory*** 
+    To add a FollowJointTrajectory action search for ActionGraph nodes and select ***ROS1 FollowJointTrajectory Action*** 
 
-    Select, by clicking the **Add Target(s)** button under the `articulationPrim` field, the root of the robot's articulation tree to control and edit the fields that define the namespace of the communication. The communication will take place in the namespace defined by the following fields:
+    Select, by clicking the **Add Target(s)** button under the `inputs:targetPrims` field, the root of the robot's articulation tree to control and edit the fields that define the namespace of the communication. The communication will take place in the namespace defined by the following fields:
 
     ```
     controllerName + actionNamespace
@@ -144,9 +141,9 @@ The following components are supported:
 <a name="ros-gripper-command"></a>
 * **GripperCommand (ROS action):** enables the actions to control a gripper
 
-    To add a GripperCommand action go to the ***Create > Isaac > ROS Control*** menu and select ***Gripper Command*** 
+    To add a GripperCommand action search for ActionGraph nodes and select ***ROS1 GripperCommand Action*** 
 
-    Select, by clicking the **Add Target(s)** button under the `articulationPrim` field, the root of the robot's articulation tree to which the end-effector belongs and then add the joints (of the gripper) to control
+    Select, by clicking the **Add Target(s)** button under the `inputs:targetPrims` field, the root of the robot's articulation tree to which the end-effector belongs and add the joints (of the gripper) to control using the `inputs:targetGripperJoints` field
     
     Also, edit the fields that define the namespace of the communication. The communication will take place in the namespace defined by the following fields:
 
