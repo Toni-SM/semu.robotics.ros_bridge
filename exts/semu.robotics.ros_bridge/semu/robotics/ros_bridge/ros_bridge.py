@@ -76,10 +76,10 @@ class RosBridge:
         """
         try:
             rospy.init_node(self._node_name, disable_signals=False)
+            _ROS_NODE_RUNNING = True
             print("[Info][semu.robotics.ros_bridge] {} node started".format(self._node_name))
         except rospy.ROSException as e:
             print("[Error][semu.robotics.ros_bridge] {}: {}".format(self._node_name, e))
-        _ROS_NODE_RUNNING = True
 
     def _on_timeline_event(self, event: 'carb.events._events.IEvent') -> None:
         """Handle the timeline event
