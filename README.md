@@ -39,6 +39,8 @@ All prerequisites described in [ROS & ROS2 Bridge](https://docs.omniverse.nvidia
 1. Add the extension using the [Extension Manager](https://docs.omniverse.nvidia.com/prod_extensions/prod_extensions/ext_extension-manager.html) or by following the steps in [Extension Search Paths](https://docs.omniverse.nvidia.com/py/kit/docs/guide/extensions.html#extension-search-paths)
 
     * Git url (git+https) as extension search path
+
+        :warning: *There seems to be a bug when installing extensions using the git url (git+https) as extension search path in Isaac Sim 2022.1.0. In this case, it is recommended to install the extension by importing the .zip file*
     
         ```
         git+https://github.com/Toni-SM/semu.robotics.ros_bridge.git?branch=main&dir=exts
