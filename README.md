@@ -29,7 +29,7 @@
 <a name="prerequisites"></a>
 ### Prerequisites
 
-All prerequisites described in [ROS & ROS2 Bridge](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/ext_omni_isaac_ros_bridge.html) must be fulfilled before running this extension
+All prerequisites described in [ROS & ROS2 Bridge](https://docs.omniverse.nvidia.com/isaacsim/latest/features/external_communication/ext_omni_isaac_ros_bridge.html) must be fulfilled before running this extension
 
 <hr>
 
